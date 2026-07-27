@@ -16,7 +16,6 @@
   <div class="nav-tabs">
     <button class="tab-btn active" onclick="switchTab('withdraw')">💳 提现管理</button>
     <button class="tab-btn" onclick="switchTab('inventory')">📦 库存管理</button>
-    <button class="tab-btn" onclick="switchTab('settlement')" style="font-size:12px">💰 快手结算报表</button>
   </div>
 
   <div class="container-wide" id="app">
@@ -56,51 +55,12 @@
         <span class="page-info" id="wdPageInfo">第 1 页</span>
         <button class="page-btn" id="wdNextPage" onclick="changeWdPage(1)">下一页 →</button>
       </div>
-    </div>
 
-    <!-- ========= 库存管理 ========= -->
-    <div id="tabInventory" class="tab-content hidden">
-      <!-- 操作栏 -->
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-sm btn-primary" onclick="openInvModal()" style="width:auto">➕ 新增商品</button>
-        <button class="btn btn-sm btn-outline" onclick="openStockInModal()" style="width:auto;padding:4px 12px;font-size:13px">📥 入库</button>
-        <button class="btn btn-sm btn-outline" onclick="openStockOutModal()" style="width:auto;padding:4px 12px;font-size:13px">📤 出库</button>
-        <span style="flex:1"></span>
-        <div style="display:flex;gap:6px">
-          <input type="text" class="form-control" id="invSearch" placeholder="搜索商品名称/编码..." style="width:180px;padding:6px 10px;font-size:13px" oninput="searchInventory()">
-          <button class="btn btn-sm btn-outline" onclick="exportInventory()" style="width:auto;font-size:13px">📤 导出CSV</button>
-          <button class="btn btn-sm btn-outline" onclick="window.print()" style="width:auto;font-size:13px">🖨️ 打印</button>
-        </div>
-      </div>
+      <!-- ===== 快手提现数据（2024-01 ~ 2026-07） ===== -->
+      <div style="margin-top:40px;padding-top:32px;border-top:2px dashed var(--border)">
+        <h2 style="margin-bottom:16px">📱 快手提现</h2>
 
-      <!-- 统计 -->
-      <div class="stats-bar">
-        <div class="stat-card"><div class="num" id="invTotal" style="color:var(--primary)">0</div><div class="label">商品总数</div></div>
-        <div class="stat-card"><div class="num" id="invLowStock" style="color:var(--danger)">0</div><div class="label">低库存预警</div></div>
-        <div class="stat-card"><div class="num" id="invTotalQty" style="color:var(--text)">0</div><div class="label">总库存量</div></div>
-        <div class="stat-card"><div class="num" id="invTotalValue" style="color:var(--warning)">¥0</div><div class="label">库存价值</div></div>
-      </div>
-
-      <!-- 分类筛选 -->
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="invCategoryFilter"></div>
-
-      <!-- 报表 -->
-      <div id="inventoryList"></div>
-
-      <!-- 分页 -->
-      <div class="pagination" id="invPagination" style="margin-top:0">
-        <button class="page-btn" id="invPrevPage" onclick="changeInvPage(-1)">← 上一页</button>
-        <span class="page-info" id="invPageInfo">第 1 页</span>
-        <button class="page-btn" id="invNextPage" onclick="changeInvPage(1)">下一页 →</button>
-      </div>
-    </div>
-
-    <!-- ========= 快手提现报表（结算=提现） ========= -->
-    <div id="tabSettlement" class="tab-content hidden">
-      <div style="padding:20px 0">
-        <h2 style="margin-bottom:20px">💰 快手提现报表（2024-01-01 ~ 2026-07-26）</h2>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px">
           <div class="stat-card">
             <div class="num" style="color:var(--primary)">$3,136,111</div>
             <div class="label">提现总额（USD）</div>
@@ -138,7 +98,7 @@
           <div id="monthlySummaryContainer"></div>
         </div>
 
-        <!-- 按店铺日汇总 -->
+        <!-- 按店铺汇总 -->
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
           <h3 style="margin-bottom:12px">📊 按店铺汇总</h3>
           <table style="width:100%;border-collapse:collapse">
@@ -157,6 +117,43 @@
           <a href="快手提现汇总_年度月度每日_2024-01-01~2026-07-26.xlsx" class="btn btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" download>📥 下载完整报表（年度/月度/每日）</a>
         </div>
       </div>
+    </div>
+    <div id="tabInventory" class="tab-content hidden">
+      <!-- 操作栏 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="openInvModal()" style="width:auto">➕ 新增商品</button>
+        <button class="btn btn-sm btn-outline" onclick="openStockInModal()" style="width:auto;padding:4px 12px;font-size:13px">📥 入库</button>
+        <button class="btn btn-sm btn-outline" onclick="openStockOutModal()" style="width:auto;padding:4px 12px;font-size:13px">📤 出库</button>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-control" id="invSearch" placeholder="搜索商品名称/编码..." style="width:180px;padding:6px 10px;font-size:13px" oninput="searchInventory()">
+          <button class="btn btn-sm btn-outline" onclick="exportInventory()" style="width:auto;font-size:13px">📤 导出CSV</button>
+          <button class="btn btn-sm btn-outline" onclick="window.print()" style="width:auto;font-size:13px">🖨️ 打印</button>
+        </div>
+      </div>
+
+      <!-- 统计 -->
+      <div class="stats-bar">
+        <div class="stat-card"><div class="num" id="invTotal" style="color:var(--primary)">0</div><div class="label">商品总数</div></div>
+        <div class="stat-card"><div class="num" id="invLowStock" style="color:var(--danger)">0</div><div class="label">低库存预警</div></div>
+        <div class="stat-card"><div class="num" id="invTotalQty" style="color:var(--text)">0</div><div class="label">总库存量</div></div>
+        <div class="stat-card"><div class="num" id="invTotalValue" style="color:var(--warning)">¥0</div><div class="label">库存价值</div></div>
+      </div>
+
+      <!-- 分类筛选 -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="invCategoryFilter"></div>
+
+      <!-- 报表 -->
+      <div id="inventoryList"></div>
+
+      <!-- 分页 -->
+      <div class="pagination" id="invPagination" style="margin-top:0">
+        <button class="page-btn" id="invPrevPage" onclick="changeInvPage(-1)">← 上一页</button>
+        <span class="page-info" id="invPageInfo">第 1 页</span>
+        <button class="page-btn" id="invNextPage" onclick="changeInvPage(1)">下一页 →</button>
+      </div>
+    </div>
+
     </div>
   </div>
 

@@ -41,19 +41,15 @@ function switchTab(tab) {
     document.querySelector('.tab-btn').classList.add('active');
     document.getElementById('tabWithdraw').classList.remove('hidden');
     renderWithdraw();
-  } else if (tab === 'inventory') {
+  } else {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
     document.getElementById('tabInventory').classList.remove('hidden');
     renderInventory();
-  } else if (tab === 'settlement') {
-    document.querySelectorAll('.tab-btn')[2].classList.add('active');
-    document.getElementById('tabSettlement').classList.remove('hidden');
-    renderSettlementSummary();
   }
 }
 
 // ===== 快手提现报表（结算=提现） =====
-function renderSettlementSummary() {
+function renderKsWithdrawSummary() {
   const stores = [
     { name: 'MaxHealthy海外官方旗舰店', amount: 2012080.90, count: 161423 },
     { name: 'VITAFOLKS海外官方旗舰店', amount: 884300.66, count: 31229 },
@@ -370,6 +366,9 @@ function renderWithdraw() {
   document.getElementById('wdPageInfo').textContent = `第 ${wdPage} / ${totalPages} 页（共 ${total} 条）`;
   document.getElementById('wdPrevPage').disabled = wdPage <= 1;
   document.getElementById('wdNextPage').disabled = wdPage >= totalPages;
+
+  // 同步渲染快手提现汇总
+  renderKsWithdrawSummary();
 }
 
 function exportWithdraw() {
