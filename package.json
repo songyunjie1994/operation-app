@@ -1,0 +1,17 @@
+{
+  "name": "operation-app",
+  "version": "1.0.0",
+  "description": "安必拓运营管理系统 - 提现管理与库存管理",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^4.22.2"
+  }
+}

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>安必拓运营管理</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="header">
+    <h1>📊 安必拓运营管理</h1>
+    <p>提现与库存管理</p>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('withdraw')">💳 提现管理</button>
+    <button class="tab-btn" onclick="switchTab('inventory')">📦 库存管理</button>
+  </div>
+
+  <div class="container-wide" id="app">
+
+    <!-- ========= 提现管理 ========= -->
+    <div id="tabWithdraw" class="tab-content">
+      <!-- 操作栏 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="openWithdrawModal()" style="width:auto">➕ 新增提现</button>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px;font-size:13px;color:var(--text-secondary);align-items:center">
+          <span>📅</span>
+          <input type="date" id="wdFilterDate" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+          <button class="btn btn-sm btn-outline" onclick="filterWithdraw()" style="width:auto;padding:4px 10px">筛选</button>
+          <button class="btn btn-sm btn-outline" onclick="clearWdFilter()" style="width:auto;padding:4px 10px">清除</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-outline" onclick="exportWithdraw()" style="width:auto;font-size:13px">📤 导出</button>
+        </div>
+      </div>
+
+      <!-- 统计 -->
+      <div class="stats-bar">
+        <div class="stat-card"><div class="num" id="wdTotal" style="color:var(--primary)">0</div><div class="label">总笔数</div></div>
+        <div class="stat-card"><div class="num" id="wdTotalAmt" style="color:var(--danger)">¥0</div><div class="label">总金额</div></div>
+        <div class="stat-card"><div class="num" id="wdPending" style="color:var(--warning)">0</div><div class="label">待打款</div></div>
+        <div class="stat-card"><div class="num" id="wdDone" style="color:var(--success)">0</div><div class="label">已打款</div></div>
+      </div>
+
+      <!-- 列表 -->
+      <div id="withdrawList"></div>
+
+      <!-- 分页 -->
+      <div class="pagination" id="wdPagination">
+        <button class="page-btn" id="wdPrevPage" onclick="changeWdPage(-1)">← 上一页</button>
+        <span class="page-info" id="wdPageInfo">第 1 页</span>
+        <button class="page-btn" id="wdNextPage" onclick="changeWdPage(1)">下一页 →</button>
+      </div>
+    </div>
+
+    <!-- ========= 库存管理 ========= -->
+    <div id="tabInventory" class="tab-content hidden">
+      <!-- 操作栏 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm btn-primary" onclick="openInvModal()" style="width:auto">➕ 新增商品</button>
+        <button class="btn btn-sm btn-outline" onclick="openStockInModal()" style="width:auto;padding:4px 12px;font-size:13px">📥 入库</button>
+        <button class="btn btn-sm btn-outline" onclick="openStockOutModal()" style="width:auto;padding:4px 12px;font-size:13px">📤 出库</button>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-control" id="invSearch" placeholder="搜索商品名称/编码..." style="width:180px;padding:6px 10px;font-size:13px" oninput="searchInventory()">
+          <button class="btn btn-sm btn-outline" onclick="exportInventory()" style="width:auto;font-size:13px">📤 导出</button>
+        </div>
+      </div>
+
+      <!-- 统计 -->
+      <div class="stats-bar">
+        <div class="stat-card"><div class="num" id="invTotal" style="color:var(--primary)">0</div><div class="label">商品总数</div></div>
+        <div class="stat-card"><div class="num" id="invLowStock" style="color:var(--danger)">0</div><div class="label">低库存预警</div></div>
+        <div class="stat-card"><div class="num" id="invTotalQty" style="color:var(--text)">0</div><div class="label">总库存量</div></div>
+        <div class="stat-card"><div class="num" id="invTotalValue" style="color:var(--warning)">¥0</div><div class="label">库存价值</div></div>
+      </div>
+
+      <!-- 分类筛选 -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="invCategoryFilter"></div>
+
+      <!-- 列表 -->
+      <div id="inventoryList"></div>
+
+      <!-- 分页 -->
+      <div class="pagination" id="invPagination">
+        <button class="page-btn" id="invPrevPage" onclick="changeInvPage(-1)">← 上一页</button>
+        <span class="page-info" id="invPageInfo">第 1 页</span>
+        <button class="page-btn" id="invNextPage" onclick="changeInvPage(1)">下一页 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 提现弹窗 ===== -->
+  <div id="withdrawModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeWithdrawModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeWithdrawModal()">✕</button>
+      <h3 id="wdModalTitle">💳 新增提现</h3>
+      <form id="withdrawForm" onsubmit="saveWithdraw(event)">
+        <input type="hidden" id="wdEditId">
+        <div class="form-group">
+          <label>提现人 <span class="required">*</span></label>
+          <input type="text" class="form-control" id="wdPerson" required placeholder="请输入提现人姓名">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>提现金额 <span class="required">*</span></label>
+            <input type="number" class="form-control" id="wdAmount" step="0.01" required placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>提现日期</label>
+            <input type="date" class="form-control" id="wdDate">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>银行账户</label>
+          <input type="text" class="form-control" id="wdAccount" placeholder="银行名称 + 卡号">
+        </div>
+        <div class="form-group">
+          <label>状态</label>
+          <select class="form-control" id="wdStatus">
+            <option value="pending">待打款</option>
+            <option value="done">已打款</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>备注</label>
+          <textarea class="form-control" id="wdRemark" rows="2" placeholder="备注信息"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 商品弹窗 ===== -->
+  <div id="invModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeInvModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeInvModal()">✕</button>
+      <h3 id="invModalTitle">📦 新增商品</h3>
+      <form id="invForm" onsubmit="saveInventory(event)">
+        <input type="hidden" id="invEditId">
+        <div class="form-group">
+          <label>商品名称 <span class="required">*</span></label>
+          <input type="text" class="form-control" id="invName" required placeholder="请输入商品名称">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>商品编码</label>
+            <input type="text" class="form-control" id="invCode" placeholder="如: SKU-001">
+          </div>
+          <div class="form-group">
+            <label>单位</label>
+            <input type="text" class="form-control" id="invUnit" placeholder="个/箱/KG">
+          </div>
+        </div>
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label>库存数量 <span class="required">*</span></label>
+            <input type="number" class="form-control" id="invQty" step="1" required placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>最低库存预警</label>
+            <input type="number" class="form-control" id="invMinStock" step="1" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>单价</label>
+            <input type="number" class="form-control" id="invPrice" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>供应商</label>
+            <input type="text" class="form-control" id="invSupplier" placeholder="供应商名称">
+          </div>
+          <div class="form-group">
+            <label>分类</label>
+            <input type="text" class="form-control" id="invCategory" placeholder="如: 耗材/设备/包材">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>备注</label>
+          <textarea class="form-control" id="invRemark" rows="2" placeholder="备注信息"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 入库弹窗 ===== -->
+  <div id="stockInModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeStockInModal()">
+    <div class="modal-content" style="max-width:400px">
+      <button class="modal-close" onclick="closeStockInModal()">✕</button>
+      <h3>📥 入库</h3>
+      <form onsubmit="doStockIn(event)">
+        <div class="form-group">
+          <label>商品 <span class="required">*</span></label>
+          <select class="form-control" id="stockInProduct" required>
+            <option value="">请选择商品</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>入库数量 <span class="required">*</span></label>
+          <input type="number" class="form-control" id="stockInQty" step="1" required placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>备注</label>
+          <input type="text" class="form-control" id="stockInRemark" placeholder="入库原因">
+        </div>
+        <button type="submit" class="btn btn-success">确认入库</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 出库弹窗 ===== -->
+  <div id="stockOutModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeStockOutModal()">
+    <div class="modal-content" style="max-width:400px">
+      <button class="modal-close" onclick="closeStockOutModal()">✕</button>
+      <h3>📤 出库</h3>
+      <form onsubmit="doStockOut(event)">
+        <div class="form-group">
+          <label>商品 <span class="required">*</span></label>
+          <select class="form-control" id="stockOutProduct" required>
+            <option value="">请选择商品</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>出库数量 <span class="required">*</span></label>
+          <input type="number" class="form-control" id="stockOutQty" step="1" required placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>备注</label>
+          <input type="text" class="form-control" id="stockOutRemark" placeholder="出库原因">
+        </div>
+        <button type="submit" class="btn btn-danger">确认出库</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 库存流水弹窗 ===== -->
+  <div id="stockLogModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeStockLogModal()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeStockLogModal()">✕</button>
+      <h3>📋 库存流水</h3>
+      <div id="stockLogContent"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
