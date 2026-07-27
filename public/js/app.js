@@ -41,11 +41,41 @@ function switchTab(tab) {
     document.querySelector('.tab-btn').classList.add('active');
     document.getElementById('tabWithdraw').classList.remove('hidden');
     renderWithdraw();
-  } else {
+  } else if (tab === 'inventory') {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
     document.getElementById('tabInventory').classList.remove('hidden');
     renderInventory();
+  } else if (tab === 'settlement') {
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.getElementById('tabSettlement').classList.remove('hidden');
+    renderSettlementSummary();
   }
+}
+
+// ===== 快手结算报表 =====
+function renderSettlementSummary() {
+  const stores = [
+    { name: 'MaxHealthy海外官方旗舰店', amount: 2012080.90, count: 161423 },
+    { name: 'VITAFOLKS海外官方旗舰店', amount: 884300.66, count: 31229 },
+    { name: 'BioEllis海外官方旗舰店', amount: 220293.19, count: 11537 },
+    { name: 'TESSMEL海外官方旗舰店', amount: 19436.36, count: 602 },
+  ];
+  const total = stores.reduce((s, x) => s + x.amount, 0);
+  const totalCount = stores.reduce((s, x) => s + x.count, 0);
+  const tbody = stores.map(s => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px 12px">${s.name}</td>
+      <td style="text-align:right;padding:10px 12px;font-weight:600">$${s.amount.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+      <td style="text-align:right;padding:10px 12px">${s.count.toLocaleString()}</td>
+    </tr>
+  `).join('');
+  document.getElementById('storeSummaryBody').innerHTML = tbody + `
+    <tr style="border-top:2px solid var(--primary);font-weight:700">
+      <td style="padding:10px 12px">合计</td>
+      <td style="text-align:right;padding:10px 12px;color:var(--primary)">$${total.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+      <td style="text-align:right;padding:10px 12px">${totalCount.toLocaleString()}</td>
+    </tr>
+  `;
 }
 
 // ====================================================================
