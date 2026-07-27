@@ -95,15 +95,15 @@
       </div>
     </div>
 
-    <!-- ========= 快手结算报表 ========= -->
+    <!-- ========= 快手提现报表（结算=提现） ========= -->
     <div id="tabSettlement" class="tab-content hidden">
       <div style="padding:20px 0">
-        <h2 style="margin-bottom:20px">💰 快手结算报表（2024-01-01 ~ 2026-07-26）</h2>
+        <h2 style="margin-bottom:20px">💰 快手提现报表（2024-01-01 ~ 2026-07-26）</h2>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px">
           <div class="stat-card">
             <div class="num" style="color:var(--primary)">$3,136,111</div>
-            <div class="label">结算总额（USD）</div>
+            <div class="label">提现总额（USD）</div>
           </div>
           <div class="stat-card">
             <div class="num" style="color:var(--primary)">204,791</div>
@@ -115,13 +115,37 @@
           </div>
         </div>
 
+        <!-- 按年度汇总 -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
+          <h3 style="margin-bottom:12px">📅 按年度汇总</h3>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border)">
+                <th style="text-align:left;padding:8px 12px">店铺</th>
+                <th style="text-align:right;padding:8px 12px">2024</th>
+                <th style="text-align:right;padding:8px 12px">2025</th>
+                <th style="text-align:right;padding:8px 12px">2026</th>
+                <th style="text-align:right;padding:8px 12px">合计</th>
+              </tr>
+            </thead>
+            <tbody id="yearlySummaryBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 按月度汇总 -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
+          <h3 style="margin-bottom:12px">📆 按月度汇总</h3>
+          <div id="monthlySummaryContainer"></div>
+        </div>
+
+        <!-- 按店铺日汇总 -->
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
           <h3 style="margin-bottom:12px">📊 按店铺汇总</h3>
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="border-bottom:2px solid var(--border)">
                 <th style="text-align:left;padding:8px 12px">店铺</th>
-                <th style="text-align:right;padding:8px 12px">结算金额（USD）</th>
+                <th style="text-align:right;padding:8px 12px">提现金额（USD）</th>
                 <th style="text-align:right;padding:8px 12px">订单笔数</th>
               </tr>
             </thead>
@@ -130,7 +154,7 @@
         </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <a href="快手结算汇总_2024-01-01~2026-07-26.xlsx" class="btn btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" download>📥 下载汇总表</a>
+          <a href="快手提现汇总_年度月度每日_2024-01-01~2026-07-26.xlsx" class="btn btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px" download>📥 下载完整报表（年度/月度/每日）</a>
         </div>
       </div>
     </div>

@@ -52,7 +52,7 @@ function switchTab(tab) {
   }
 }
 
-// ===== 快手结算报表 =====
+// ===== 快手提现报表（结算=提现） =====
 function renderSettlementSummary() {
   const stores = [
     { name: 'MaxHealthy海外官方旗舰店', amount: 2012080.90, count: 161423 },
@@ -60,22 +60,121 @@ function renderSettlementSummary() {
     { name: 'BioEllis海外官方旗舰店', amount: 220293.19, count: 11537 },
     { name: 'TESSMEL海外官方旗舰店', amount: 19436.36, count: 602 },
   ];
+
+  // ---- 按店铺汇总 ----
   const total = stores.reduce((s, x) => s + x.amount, 0);
   const totalCount = stores.reduce((s, x) => s + x.count, 0);
-  const tbody = stores.map(s => `
+  document.getElementById('storeSummaryBody').innerHTML = stores.map(s => `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px 12px">${s.name}</td>
       <td style="text-align:right;padding:10px 12px;font-weight:600">$${s.amount.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
       <td style="text-align:right;padding:10px 12px">${s.count.toLocaleString()}</td>
     </tr>
-  `).join('');
-  document.getElementById('storeSummaryBody').innerHTML = tbody + `
+  `).join('') + `
     <tr style="border-top:2px solid var(--primary);font-weight:700">
       <td style="padding:10px 12px">合计</td>
       <td style="text-align:right;padding:10px 12px;color:var(--primary)">$${total.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
       <td style="text-align:right;padding:10px 12px">${totalCount.toLocaleString()}</td>
     </tr>
   `;
+
+  // ---- 按年度汇总 ----
+  const yearlyData = [
+    { store: 'MaxHealthy海外官方旗舰店', '2024': 52293.48, '2025': 1401267.83, '2026': 558519.59 },
+    { store: 'VITAFOLKS海外官方旗舰店', '2024': 423360.08, '2025': 398536.78, '2026': 62403.80 },
+    { store: 'BioEllis海外官方旗舰店', '2024': 0, '2025': 15399.64, '2026': 204893.55 },
+    { store: 'TESSMEL海外官方旗舰店', '2024': 0, '2025': 0, '2026': 19436.36 },
+  ];
+  document.getElementById('yearlySummaryBody').innerHTML = yearlyData.map(s => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px">${s.store}</td>
+      <td style="text-align:right;padding:8px 12px">${s['2024'] ? '$'+s['2024'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
+      <td style="text-align:right;padding:8px 12px">${s['2025'] ? '$'+s['2025'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
+      <td style="text-align:right;padding:8px 12px">${s['2026'] ? '$'+s['2026'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
+      <td style="text-align:right;padding:8px 12px;font-weight:600;color:var(--primary)">$${(s['2024']+s['2025']+s['2026']).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+    </tr>
+  `).join('');
+
+  // ---- 按月度汇总 ----
+  const monthlyData = [
+    // MaxHealthy
+    { store: 'MaxHealthy', ym: '2024-10', amount: 1005.06 },
+    { store: 'MaxHealthy', ym: '2024-11', amount: 10531.96 },
+    { store: 'MaxHealthy', ym: '2024-12', amount: 40756.46 },
+    { store: 'MaxHealthy', ym: '2025-01', amount: 89986.83 },
+    { store: 'MaxHealthy', ym: '2025-02', amount: 97271.77 },
+    { store: 'MaxHealthy', ym: '2025-03', amount: 279387.89 },
+    { store: 'MaxHealthy', ym: '2025-04', amount: 140504.63 },
+    { store: 'MaxHealthy', ym: '2025-05', amount: 61841.57 },
+    { store: 'MaxHealthy', ym: '2025-06', amount: 188211.21 },
+    { store: 'MaxHealthy', ym: '2025-07', amount: 189255.95 },
+    { store: 'MaxHealthy', ym: '2025-08', amount: 44807.95 },
+    { store: 'MaxHealthy', ym: '2025-11', amount: 1042.97 },
+    { store: 'MaxHealthy', ym: '2025-12', amount: 31260.43 },
+    { store: 'MaxHealthy', ym: '2026-01', amount: 85111.82 },
+    { store: 'MaxHealthy', ym: '2026-02', amount: 96727.23 },
+    { store: 'MaxHealthy', ym: '2026-03', amount: 77962.45 },
+    { store: 'MaxHealthy', ym: '2026-04', amount: 71182.81 },
+    { store: 'MaxHealthy', ym: '2026-05', amount: 52129.15 },
+    { store: 'MaxHealthy', ym: '2026-06', amount: 22200.79 },
+    { store: 'MaxHealthy', ym: '2026-07', amount: 51350.34 },
+    // VITAFOLKS
+    { store: 'VITAFOLKS', ym: '2024-01', amount: 17562.60 },
+    { store: 'VITAFOLKS', ym: '2024-03', amount: 40438.12 },
+    { store: 'VITAFOLKS', ym: '2024-04', amount: 14034.09 },
+    { store: 'VITAFOLKS', ym: '2024-05', amount: 26001.27 },
+    { store: 'VITAFOLKS', ym: '2024-06', amount: 30871.42 },
+    { store: 'VITAFOLKS', ym: '2024-07', amount: 11021.65 },
+    { store: 'VITAFOLKS', ym: '2024-08', amount: 41186.80 },
+    { store: 'VITAFOLKS', ym: '2024-09', amount: 41248.81 },
+    { store: 'VITAFOLKS', ym: '2024-10', amount: 48297.11 },
+    { store: 'VITAFOLKS', ym: '2024-11', amount: 54457.49 },
+    { store: 'VITAFOLKS', ym: '2024-12', amount: 97940.72 },
+    { store: 'VITAFOLKS', ym: '2025-01', amount: 96560.92 },
+    { store: 'VITAFOLKS', ym: '2025-02', amount: 48882.51 },
+    { store: 'VITAFOLKS', ym: '2025-03', amount: 62161.27 },
+    { store: 'VITAFOLKS', ym: '2025-04', amount: 51990.17 },
+    { store: 'VITAFOLKS', ym: '2025-05', amount: 20380.89 },
+    { store: 'VITAFOLKS', ym: '2025-06', amount: 25007.80 },
+    { store: 'VITAFOLKS', ym: '2025-07', amount: 45581.83 },
+    { store: 'VITAFOLKS', ym: '2025-08', amount: 10221.70 },
+    { store: 'VITAFOLKS', ym: '2025-12', amount: 27749.69 },
+    { store: 'VITAFOLKS', ym: '2026-02', amount: 18061.91 },
+    { store: 'VITAFOLKS', ym: '2026-04', amount: 7572.21 },
+    { store: 'VITAFOLKS', ym: '2026-05', amount: 7663.96 },
+    { store: 'VITAFOLKS', ym: '2026-07', amount: 29105.72 },
+    // BioEllis
+    { store: 'BioEllis', ym: '2025-11', amount: 2997.26 },
+    { store: 'BioEllis', ym: '2025-12', amount: 12402.38 },
+    { store: 'BioEllis', ym: '2026-01', amount: 76051.41 },
+    { store: 'BioEllis', ym: '2026-02', amount: 45969.36 },
+    { store: 'BioEllis', ym: '2026-03', amount: 29521.99 },
+    { store: 'BioEllis', ym: '2026-04', amount: 49055.01 },
+    { store: 'BioEllis', ym: '2026-05', amount: 32918.59 },
+    { store: 'BioEllis', ym: '2026-06', amount: 10410.86 },
+    { store: 'BioEllis', ym: '2026-07', amount: 5081.11 },
+    // TESSMEL
+    { store: 'TESSMEL', ym: '2026-04', amount: 11364.68 },
+    { store: 'TESSMEL', ym: '2026-05', amount: 8071.68 },
+  ];
+
+  const storeOrder = ['MaxHealthy', 'VITAFOLKS', 'BioEllis', 'TESSMEL'];
+  const container = document.getElementById('monthlySummaryContainer');
+  let html = '';
+  for (const storeName of storeOrder) {
+    const items = monthlyData.filter(d => d.store === storeName).sort((a, b) => a.ym.localeCompare(b.ym));
+    const totalAmt = items.reduce((s, x) => s + x.amount, 0);
+    html += '<div style="margin-bottom:16px">';
+    html += '<div style="font-weight:600;margin-bottom:6px;font-size:14px">' + storeName + '海外官方旗舰店 <span style="color:var(--text-secondary);font-weight:400">合计: $' + totalAmt.toLocaleString('en-US',{minimumFractionDigits:2}) + '</span></div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    html += '<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px 10px">月份</th><th style="text-align:right;padding:6px 10px">提现金额（USD）</th></tr></thead><tbody>';
+    for (const item of items) {
+      const [y, m] = item.ym.split('-');
+      html += '<tr style="border-bottom:1px solid #eee"><td style="padding:5px 10px">' + y + '年' + parseInt(m) + '月</td><td style="text-align:right;padding:5px 10px">$' + item.amount.toLocaleString('en-US',{minimumFractionDigits:2}) + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+  }
+  container.innerHTML = html;
 }
 
 // ====================================================================
