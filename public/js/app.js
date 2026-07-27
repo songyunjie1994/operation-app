@@ -175,38 +175,72 @@ function renderWithdraw() {
   const list = document.getElementById('withdrawList');
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-state"><div class="icon">💳</div><p>暂无提现记录</p></div>';
-  } else {
-    list.innerHTML = rows.map(w => renderWdCard(w)).join('');
+    return;
   }
+
+  // Build report table
+  const thead = `
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>提现人</th>
+        <th style="width:120px">日期</th>
+        <th class="num" style="width:120px">金额</th>
+        <th style="width:100px">状态</th>
+        <th>银行账户</th>
+        <th>备注</th>
+        <th class="center" style="width:140px">操作</th>
+      </tr>
+    </thead>`;
+
+  const tbody = rows.map((w, i) => {
+    const statusHtml = w.status === 'pending'
+      ? '<span class="status-tag status-pending">⏳ 待打款</span>'
+      : '<span class="status-tag status-done">✅ 已打款</span>';
+    return `<tr>
+      <td>${offset + i + 1}</td>
+      <td class="name-cell">${esc(w.person)}</td>
+      <td>${esc(w.date || '-')}</td>
+      <td class="num"><span class="amount amount-positive">${formatMoney(w.amount)}</span></td>
+      <td>${statusHtml}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${esc(w.account||'')}">${esc(w.account) || '-'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${esc(w.remark||'')}">${esc(w.remark) || '-'}</td>
+      <td class="center">
+        <div class="actions-cell">
+          <button class="btn-icon text-green" onclick="toggleWdStatus(${w.id})" title="${w.status === 'pending' ? '标记已打款' : '撤回'}">${w.status === 'pending' ? '✅' : '↩️'}</button>
+          <button class="btn-icon text-primary" onclick="editWithdraw(${w.id})" title="编辑">✏️</button>
+          <button class="btn-icon text-red" onclick="deleteWithdraw(${w.id})" title="删除">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Summary footer
+  const pageAmt = rows.reduce((s, w) => s + (w.amount || 0), 0);
+  const summary = `<div class="report-summary">
+    本页金额: <strong class="total-amt">${formatMoney(pageAmt)}</strong>
+    &nbsp;|&nbsp; 待打款: <strong class="pending-count">${pending}</strong>
+    &nbsp;|&nbsp; 已打款: <strong class="done-count">${done}</strong>
+  </div>`;
+
+  list.innerHTML = `
+    <div class="report-container">
+      <div class="report-header">
+        <div class="report-title">💳 提现明细报表 <span class="sub">${wdFilterDate ? '筛选日期: '+wdFilterDate : '全部记录'}</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">共 ${total} 笔 / 合计 ${formatMoney(totalAmt)}</div>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          ${thead}
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      <div class="report-footer">${summary}</div>
+    </div>`;
 
   document.getElementById('wdPageInfo').textContent = `第 ${wdPage} / ${totalPages} 页（共 ${total} 条）`;
   document.getElementById('wdPrevPage').disabled = wdPage <= 1;
   document.getElementById('wdNextPage').disabled = wdPage >= totalPages;
-}
-
-function renderWdCard(w) {
-  const statusHtml = w.status === 'pending'
-    ? '<span class="status-tag status-pending">⏳ 待打款</span>'
-    : '<span class="status-tag status-done">✅ 已打款</span>';
-  const amtClass = 'amount amount-positive';
-  return `
-    <div class="data-card">
-      <div class="top-row">
-        <span class="name">${esc(w.person)}</span>
-        ${statusHtml}
-      </div>
-      <div class="info-row"><span class="icon">💰</span> <span class="${amtClass}">${formatMoney(w.amount)}</span></div>
-      ${w.date ? `<div class="info-row"><span class="icon">📅</span> ${esc(w.date)}</div>` : ''}
-      ${w.account ? `<div class="info-row"><span class="icon">🏦</span> ${esc(w.account)}</div>` : ''}
-      ${w.remark ? `<div class="info-row"><span class="icon">📝</span> ${esc(w.remark)}</div>` : ''}
-      <div class="info-row" style="font-size:11px;color:#94a3b8">🕐 ${w.created_at || ''}</div>
-      <div class="actions" onclick="event.stopPropagation()">
-        <button class="btn btn-sm ${w.status === 'pending' ? 'btn-success' : 'btn-outline'}" onclick="toggleWdStatus(${w.id})" style="width:auto">${w.status === 'pending' ? '✅ 标记已打款' : '↩️ 撤回'}</button>
-        <button class="btn btn-sm btn-outline" onclick="editWithdraw(${w.id})" style="width:auto">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteWithdraw(${w.id})" style="width:auto">🗑️</button>
-      </div>
-    </div>
-  `;
 }
 
 function exportWithdraw() {
@@ -403,19 +437,35 @@ function showStockLog(id) {
   if (!item) { showToast('商品不存在', 'error'); return; }
   const logs = data.stockLogs.filter(l => l.productId === id);
 
-  let html = '<div style="margin-bottom:12px"><strong>'+esc(item.name)+'</strong> 当前库存: '+item.quantity+' '+item.unit+'</div>';
+  const info = '<div style="padding:12px 16px;background:#f8fafc;border-bottom:2px solid var(--border);font-size:14px"><strong>'+esc(item.name)+'</strong> 当前库存: <strong style="color:var(--primary)">'+item.quantity+'</strong> '+item.unit+'</div>';
+
   if (logs.length === 0) {
-    html += '<div style="text-align:center;padding:20px;color:var(--text-secondary)">暂无流水记录</div>';
+    document.getElementById('stockLogContent').innerHTML = info + '<div style="text-align:center;padding:24px;color:var(--text-secondary)">暂无流水记录</div>';
   } else {
-    html += '<table class="stock-log-table"><tr><th>时间</th><th>类型</th><th>数量</th><th>变动前</th><th>变动后</th><th>备注</th></tr>';
-    logs.forEach(l => {
-      const typeHtml = l.type === 'in' ? '<span style="color:var(--success)">入库</span>' : '<span style="color:var(--danger)">出库</span>';
-      html += '<tr><td>'+l.created_at+'</td><td>'+typeHtml+'</td><td>'+(l.type==='in'?'+':'-')+l.quantity+'</td><td>'+l.beforeQty+'</td><td>'+l.afterQty+'</td><td>'+esc(l.remark||'')+'</td></tr>';
-    });
-    html += '</table>';
+    const rows = logs.map(l => {
+      const isIn = l.type === 'in';
+      return '<tr>'+
+        '<td>'+l.created_at+'</td>'+
+        '<td><span style="color:'+(isIn?'var(--success)':'var(--danger)')+';font-weight:600">'+(isIn?'📥 入库':'📤 出库')+'</span></td>'+
+        '<td class="num"><strong style="color:'+(isIn?'var(--success)':'var(--danger)')+'">'+(isIn?'+':'-')+l.quantity+'</strong></td>'+
+        '<td class="num">'+l.beforeQty+'</td>'+
+        '<td class="num">'+l.afterQty+'</td>'+
+        '<td>'+esc(l.remark||'')+'</td>'+
+        '</tr>';
+    }).join('');
+
+    document.getElementById('stockLogContent').innerHTML = info + `
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>时间</th><th>类型</th><th class="num">数量</th><th class="num">变动前</th><th class="num">变动后</th><th>备注</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="report-footer" style="font-size:12px;color:var(--text-secondary)">
+        共 ${logs.length} 条流水记录
+      </div>`;
   }
 
-  document.getElementById('stockLogContent').innerHTML = html;
   document.getElementById('stockLogModal').style.display = '';
 }
 
@@ -474,42 +524,80 @@ function renderInventory() {
   const list = document.getElementById('inventoryList');
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>'+(invSearch?'没有匹配的商品':'暂无商品，点击上方"新增商品"开始')+'</p></div>';
-  } else {
-    list.innerHTML = rows.map(x => renderInvCard(x)).join('');
+    return;
   }
+
+  // Build report table
+  const thead = `
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th>商品名称</th>
+        <th style="width:80px">编码</th>
+        <th class="num" style="width:70px">库存</th>
+        <th style="width:50px">单位</th>
+        <th class="num" style="width:70px">预警线</th>
+        <th class="num" style="width:90px">单价</th>
+        <th class="num" style="width:100px">估值</th>
+        <th style="width:80px">分类</th>
+        <th style="width:120px">备注</th>
+        <th class="center" style="width:120px">操作</th>
+      </tr>
+    </thead>`;
+
+  const tbody = rows.map((x, i) => {
+    const isLow = x.minStock > 0 && x.quantity <= x.minStock;
+    const value = (x.quantity || 0) * (x.price || 0);
+    const lowBadge = isLow ? ' <span class="status-tag status-low">⚠️ 低</span>' : '';
+    return `<tr${isLow ? ' style="background:#fffbf5"' : ''}>
+      <td>${offset + i + 1}</td>
+      <td class="name-cell">${esc(x.name)}${lowBadge}</td>
+      <td>${esc(x.code) || '-'}</td>
+      <td class="num"><strong style="color:${isLow?'var(--danger)':'var(--text)'}">${x.quantity||0}</strong></td>
+      <td>${esc(x.unit) || '-'}</td>
+      <td class="num">${x.minStock || '-'}</td>
+      <td class="num">${x.price ? formatMoney(x.price) : '-'}</td>
+      <td class="num">${value ? formatMoney(value) : '-'}</td>
+      <td>${esc(x.category) || '-'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${esc(x.remark||'')}">${esc(x.remark) || '-'}</td>
+      <td class="center">
+        <div class="actions-cell">
+          <button class="btn-icon text-primary" onclick="showStockLog(${x.id})" title="流水">📋</button>
+          <button class="btn-icon text-primary" onclick="editInventory(${x.id})" title="编辑">✏️</button>
+          <button class="btn-icon text-red" onclick="deleteInventory(${x.id})" title="删除">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Summary footer
+  const pageValue = rows.reduce((s, x) => s + ((x.quantity||0) * (x.price||0)), 0);
+  const pageQty = rows.reduce((s, x) => s + (x.quantity || 0), 0);
+  const summary = `<div class="report-summary">
+    本页数量: <strong>${pageQty}</strong>
+    &nbsp;|&nbsp; 本页估值: <strong class="total-amt">${formatMoney(pageValue)}</strong>
+    &nbsp;|&nbsp; 低库存预警: <strong class="${lowStock > 0 ? 'pending-count' : 'done-count'}">${lowStock}</strong>
+    &nbsp;|&nbsp; 总库存价值: <strong class="total-amt">${formatMoney(totalValue)}</strong>
+  </div>`;
+
+  list.innerHTML = `
+    <div class="report-container">
+      <div class="report-header">
+        <div class="report-title">📦 库存报表 <span class="sub">${invCategory ? '分类: '+invCategory : '全部商品'}</span></div>
+        <div style="font-size:12px;color:var(--text-secondary)">共 ${total} 种商品 / 总库存 ${totalQty} ${rows[0]?.unit||'件'}</div>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          ${thead}
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      <div class="report-footer">${summary}</div>
+    </div>`;
 
   document.getElementById('invPageInfo').textContent = `第 ${invPage} / ${totalPages} 页（共 ${total} 条）`;
   document.getElementById('invPrevPage').disabled = invPage <= 1;
   document.getElementById('invNextPage').disabled = invPage >= totalPages;
-}
-
-function renderInvCard(item) {
-  const isLow = item.minStock > 0 && item.quantity <= item.minStock;
-  const value = (item.quantity || 0) * (item.price || 0);
-  return `
-    <div class="data-card">
-      <div class="top-row">
-        <span class="name">${esc(item.name)} ${isLow ? '<span class="status-tag status-low">⚠️ 低库存</span>' : ''}</span>
-        ${item.code ? '<span style="font-size:12px;color:var(--text-secondary)">'+esc(item.code)+'</span>' : ''}
-      </div>
-      <div style="display:flex;gap:16px;margin:6px 0;flex-wrap:wrap">
-        <span style="font-size:20px;font-weight:700;color:${isLow?'var(--danger)':'var(--text)'}">${item.quantity||0}</span>
-        <span style="color:var(--text-secondary);font-size:13px;line-height:28px">${item.unit||'个'}</span>
-        ${item.price ? '<span style="color:var(--text-secondary);font-size:13px;line-height:28px">单价 '+formatMoney(item.price)+'</span>' : ''}
-        ${value ? '<span style="color:var(--warning);font-size:13px;line-height:28px">估值 '+formatMoney(value)+'</span>' : ''}
-      </div>
-      ${item.minStock ? '<div class="info-row">⚠️ 预警线: '+item.minStock+'</div>' : ''}
-      ${item.supplier ? '<div class="info-row"><span class="icon">🏭</span> '+esc(item.supplier)+'</div>' : ''}
-      ${item.category ? '<div class="info-row"><span class="icon">📂</span> '+esc(item.category)+'</div>' : ''}
-      ${item.remark ? '<div class="info-row"><span class="icon">📝</span> '+esc(item.remark)+'</div>' : ''}
-      <div class="info-row" style="font-size:11px;color:#94a3b8">🕐 ${item.updated_at||item.created_at||''}</div>
-      <div class="actions" onclick="event.stopPropagation()">
-        <button class="btn btn-sm btn-outline" onclick="showStockLog(${item.id})" style="width:auto">📋 流水</button>
-        <button class="btn btn-sm btn-outline" onclick="editInventory(${item.id})" style="width:auto">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteInventory(${item.id})" style="width:auto">🗑️</button>
-      </div>
-    </div>
-  `;
 }
 
 function exportInventory() {

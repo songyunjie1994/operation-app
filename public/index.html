@@ -33,7 +33,8 @@
           <button class="btn btn-sm btn-outline" onclick="clearWdFilter()" style="width:auto;padding:4px 10px">清除</button>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-sm btn-outline" onclick="exportWithdraw()" style="width:auto;font-size:13px">📤 导出</button>
+          <button class="btn btn-sm btn-outline" onclick="exportWithdraw()" style="width:auto;font-size:13px">📤 导出CSV</button>
+          <button class="btn btn-sm btn-outline" onclick="window.print()" style="width:auto;font-size:13px">🖨️ 打印</button>
         </div>
       </div>
 
@@ -45,11 +46,11 @@
         <div class="stat-card"><div class="num" id="wdDone" style="color:var(--success)">0</div><div class="label">已打款</div></div>
       </div>
 
-      <!-- 列表 -->
+      <!-- 报表 -->
       <div id="withdrawList"></div>
 
       <!-- 分页 -->
-      <div class="pagination" id="wdPagination">
+      <div class="pagination" id="wdPagination" style="margin-top:0">
         <button class="page-btn" id="wdPrevPage" onclick="changeWdPage(-1)">← 上一页</button>
         <span class="page-info" id="wdPageInfo">第 1 页</span>
         <button class="page-btn" id="wdNextPage" onclick="changeWdPage(1)">下一页 →</button>
@@ -66,7 +67,8 @@
         <span style="flex:1"></span>
         <div style="display:flex;gap:6px">
           <input type="text" class="form-control" id="invSearch" placeholder="搜索商品名称/编码..." style="width:180px;padding:6px 10px;font-size:13px" oninput="searchInventory()">
-          <button class="btn btn-sm btn-outline" onclick="exportInventory()" style="width:auto;font-size:13px">📤 导出</button>
+          <button class="btn btn-sm btn-outline" onclick="exportInventory()" style="width:auto;font-size:13px">📤 导出CSV</button>
+          <button class="btn btn-sm btn-outline" onclick="window.print()" style="width:auto;font-size:13px">🖨️ 打印</button>
         </div>
       </div>
 
@@ -81,11 +83,11 @@
       <!-- 分类筛选 -->
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="invCategoryFilter"></div>
 
-      <!-- 列表 -->
+      <!-- 报表 -->
       <div id="inventoryList"></div>
 
       <!-- 分页 -->
-      <div class="pagination" id="invPagination">
+      <div class="pagination" id="invPagination" style="margin-top:0">
         <button class="page-btn" id="invPrevPage" onclick="changeInvPage(-1)">← 上一页</button>
         <span class="page-info" id="invPageInfo">第 1 页</span>
         <button class="page-btn" id="invNextPage" onclick="changeInvPage(1)">下一页 →</button>
