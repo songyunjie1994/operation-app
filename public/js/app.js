@@ -48,129 +48,257 @@ function switchTab(tab) {
   }
 }
 
-// ===== 快手提现报表（结算=提现） =====
-function renderKsWithdrawSummary() {
-  const stores = [
-    { name: 'MaxHealthy海外官方旗舰店', amount: 2012080.90, count: 161423 },
-    { name: 'VITAFOLKS海外官方旗舰店', amount: 884300.66, count: 31229 },
-    { name: 'BioEllis海外官方旗舰店', amount: 220293.19, count: 11537 },
-    { name: 'TESSMEL海外官方旗舰店', amount: 19436.36, count: 602 },
-  ];
+// ====================================================================
+// 快手提现数据（2024-01 ~ 2026-07）
+// ====================================================================
 
-  // ---- 按店铺汇总 ----
-  const total = stores.reduce((s, x) => s + x.amount, 0);
-  const totalCount = stores.reduce((s, x) => s + x.count, 0);
-  document.getElementById('storeSummaryBody').innerHTML = stores.map(s => `
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:10px 12px">${s.name}</td>
-      <td style="text-align:right;padding:10px 12px;font-weight:600">$${s.amount.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-      <td style="text-align:right;padding:10px 12px">${s.count.toLocaleString()}</td>
-    </tr>
-  `).join('') + `
-    <tr style="border-top:2px solid var(--primary);font-weight:700">
-      <td style="padding:10px 12px">合计</td>
-      <td style="text-align:right;padding:10px 12px;color:var(--primary)">$${total.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-      <td style="text-align:right;padding:10px 12px">${totalCount.toLocaleString()}</td>
-    </tr>
+// 每日提现数据（按店铺分组）
+const KS_DAILY_DATA = {
+  'BioEllis海外官方旗舰店': [
+    {d:"2025-11-22",a:989.54},{d:"2025-11-25",a:1064.68},{d:"2025-12-06",a:943.04},{d:"2025-12-16",a:2186.94},{d:"2025-12-17",a:6031.53},{d:"2025-12-23",a:940.18},{d:"2025-12-30",a:3243.73},{d:"2026-01-06",a:1522.3},{d:"2026-01-07",a:10697.83},{d:"2026-01-16",a:6103.22},{d:"2026-01-21",a:5183.33},{d:"2026-01-22",a:7001.2},{d:"2026-01-24",a:1657.61},{d:"2026-01-27",a:4227.04},{d:"2026-01-28",a:13093.03},{d:"2026-01-29",a:3842.11},{d:"2026-01-30",a:7280.62},{d:"2026-01-31",a:1114.45},{d:"2026-02-03",a:3544.52},{d:"2026-02-04",a:1744.56},{d:"2026-02-05",a:6840.35},{d:"2026-02-06",a:2000.59},{d:"2026-02-07",a:903.94},{d:"2026-02-10",a:5331.19},{d:"2026-02-11",a:11129.97},{d:"2026-02-12",a:1039.25},{d:"2026-02-14",a:1641.72},{d:"2026-02-25",a:5312.53},{d:"2026-02-26",a:8849.45},{d:"2026-03-06",a:985.66},{d:"2026-03-10",a:1172.76},{d:"2026-03-17",a:3060.34},{d:"2026-03-18",a:6179.69},{d:"2026-03-20",a:1253.95},{d:"2026-03-24",a:1229.71},{d:"2026-03-25",a:3609.42},{d:"2026-03-26",a:5530.1},{d:"2026-04-09",a:2140.38},{d:"2026-04-14",a:2597.62},{d:"2026-04-15",a:5065.56},{d:"2026-04-25",a:9776.84},{d:"2026-04-26",a:9100.25},{d:"2026-05-07",a:7018.79},{d:"2026-05-08",a:7074.48},{d:"2026-05-09",a:1085.3},{d:"2026-05-13",a:4834.6},{d:"2026-05-20",a:987.71},{d:"2026-05-22",a:5094.25},{d:"2026-05-27",a:1543.36},{d:"2026-06-28",a:10410.86},{d:"2026-07-06",a:5081.11},
+  ],
+  'MaxHealthy海外官方旗舰店': [
+    {d:"2024-10-09",a:1005.06},{d:"2024-11-09",a:959.24},{d:"2024-11-15",a:868.09},{d:"2024-11-19",a:2045.75},{d:"2024-11-20",a:5160.63},{d:"2024-11-27",a:1497.25},{d:"2024-12-03",a:1394.3},{d:"2024-12-10",a:3804.76},{d:"2024-12-11",a:6958.78},{d:"2024-12-13",a:886.84},{d:"2024-12-14",a:886.13},{d:"2024-12-17",a:1711.21},{d:"2024-12-18",a:1356.14},{d:"2024-12-20",a:1505.77},{d:"2024-12-21",a:5685.99},{d:"2024-12-24",a:3380.51},{d:"2024-12-28",a:2444.54},{d:"2024-12-29",a:5362.28},{d:"2024-12-31",a:5380.21},{d:"2025-01-01",a:5125.27},{d:"2025-01-08",a:12160.17},{d:"2025-01-09",a:10507.35},{d:"2025-01-10",a:1659.5},{d:"2025-01-11",a:928.27},{d:"2025-01-14",a:8284.9},{d:"2025-01-15",a:10079.04},{d:"2025-01-16",a:3900.63},{d:"2025-01-17",a:2250.97},{d:"2025-01-18",a:19167.09},{d:"2025-01-19",a:10048.22},{d:"2025-01-22",a:3951.56},{d:"2025-01-23",a:1206.94},{d:"2025-01-24",a:17943.8},{d:"2025-01-25",a:21037.78},{d:"2025-01-28",a:4953.79},{d:"2025-01-29",a:6599.33},{d:"2025-02-06",a:32142.6},{d:"2025-02-07",a:30381.18},{d:"2025-02-12",a:5315.89},{d:"2025-02-13",a:6927.3},{d:"2025-02-19",a:1230.44},{d:"2025-02-20",a:15136.22},{d:"2025-02-21",a:14755.31},{d:"2025-02-22",a:1800.71},{d:"2025-02-25",a:3441.73},{d:"2025-02-26",a:9654.22},{d:"2025-02-27",a:1579.5},{d:"2025-03-12",a:66770.6},{d:"2025-03-14",a:83077.98},{d:"2025-03-15",a:20657.17},{d:"2025-03-16",a:14448.52},{d:"2025-03-21",a:17605.64},{d:"2025-03-22",a:14041.97},{d:"2025-03-26",a:19529.2},{d:"2025-03-27",a:18204.32},{d:"2025-03-28",a:1712.61},{d:"2025-03-29",a:7143.95},{d:"2025-03-30",a:7343.08},{d:"2025-04-01",a:8287.94},{d:"2025-04-03",a:12560.76},{d:"2025-04-04",a:15412.79},{d:"2025-04-08",a:4000.02},{d:"2025-04-12",a:30367.45},{d:"2025-04-13",a:19787.37},{d:"2025-04-15",a:11586.09},{d:"2025-04-16",a:6548.07},{d:"2025-04-24",a:26551.35},{d:"2025-04-25",a:17992.2},{d:"2025-04-26",a:1286.35},{d:"2025-04-29",a:2662.35},{d:"2025-04-30",a:1198.4},{d:"2025-05-07",a:6916.52},{d:"2025-05-08",a:9721.39},{d:"2025-05-10",a:1500.82},{d:"2025-05-13",a:7292.19},{d:"2025-05-14",a:6562.84},{d:"2025-05-16",a:1116.16},{d:"2025-05-17",a:2103.51},{d:"2025-05-20",a:3487.48},{d:"2025-05-21",a:8207.25},{d:"2025-05-22",a:1335.41},{d:"2025-05-23",a:944.07},{d:"2025-05-24",a:6124.11},{d:"2025-05-25",a:9627.58},{d:"2025-05-28",a:11115.91},{d:"2025-05-29",a:13267.79},{d:"2025-05-31",a:8209.54},{d:"2025-06-01",a:11300.48},{d:"2025-06-04",a:22526.13},{d:"2025-06-05",a:24440.58},{d:"2025-06-06",a:3627.21},{d:"2025-06-07",a:5920.7},{d:"2025-06-10",a:17395.19},{d:"2025-06-11",a:17761.7},{d:"2025-06-17",a:15338.31},{d:"2025-06-18",a:35365.51},{d:"2025-06-21",a:16967.86},{d:"2025-06-22",a:17816.01},{d:"2025-06-24",a:7275.5},{d:"2025-06-25",a:5649.77},{d:"2025-06-27",a:17644.33},{d:"2025-06-28",a:17751.62},{d:"2025-07-01",a:4967.39},{d:"2025-07-03",a:23600.74},{d:"2025-07-04",a:25153.89},{d:"2025-07-10",a:37532.12},{d:"2025-07-11",a:39954.32},{d:"2025-07-12",a:4828.43},{d:"2025-07-13",a:7899.12},{d:"2025-07-15",a:17009.57},{d:"2025-07-16",a:18975.42},{d:"2025-07-17",a:6083.69},{d:"2025-07-18",a:8294.95},{d:"2025-07-19",a:11391.58},{d:"2025-07-20",a:10172.65},{d:"2025-07-22",a:3656.13},{d:"2025-07-23",a:15345.1},{d:"2025-07-24",a:15813.72},{d:"2025-07-25",a:6740.97},{d:"2025-07-26",a:9250.15},{d:"2025-07-29",a:14260.12},{d:"2025-07-30",a:19530.83},{d:"2025-07-31",a:2509.6},{d:"2025-08-01",a:2820.14},{d:"2025-08-02",a:10400.36},{d:"2025-08-05",a:8930.43},{d:"2025-08-06",a:11418.06},{d:"2025-11-29",a:1042.97},{d:"2025-12-03",a:914.17},{d:"2025-12-05",a:2270.1},{d:"2025-12-06",a:933.34},{d:"2025-12-07",a:5375.42},{d:"2025-12-09",a:2307.5},{d:"2025-12-12",a:1676.27},{d:"2025-12-16",a:1764.09},{d:"2025-12-17",a:6402.35},{d:"2025-12-19",a:1076.33},{d:"2025-12-20",a:3111.71},{d:"2025-12-23",a:2067.49},{d:"2025-12-24",a:5933.42},{d:"2025-12-25",a:1229.93},{d:"2025-12-30",a:3363.9},{d:"2026-01-06",a:10886.91},{d:"2026-01-07",a:15332.91},{d:"2026-01-08",a:1240.5},{d:"2026-01-09",a:1254.5},{d:"2026-01-10",a:1070.01},{d:"2026-01-13",a:9598.23},{d:"2026-01-14",a:18491.12},{d:"2026-01-15",a:2688.03},{d:"2026-01-16",a:10385.28},{d:"2026-01-17",a:2449.38},{d:"2026-01-18",a:5993.54},{d:"2026-01-21",a:13259.54},{d:"2026-01-22",a:1542.85},{d:"2026-01-27",a:2500.22},{d:"2026-01-28",a:6037.48},{d:"2026-02-03",a:8615.4},{d:"2026-02-04",a:7493.78},{d:"2026-02-06",a:929.98},{d:"2026-02-07",a:8136.22},{d:"2026-02-08",a:10761.14},{d:"2026-02-10",a:2036.42},{d:"2026-02-26",a:59618.43},{d:"2026-02-27",a:7560.06},{d:"2026-02-28",a:2202.93},{d:"2026-03-03",a:1028.25},{d:"2026-03-05",a:1481.82},{d:"2026-03-06",a:3539.98},{d:"2026-03-07",a:10149.62},{d:"2026-03-10",a:6192.17},{d:"2026-03-11",a:9702.89},{d:"2026-03-12",a:1471.78},{d:"2026-03-13",a:1476.81},{d:"2026-03-14",a:7103.68},{d:"2026-03-18",a:8257.48},{d:"2026-03-19",a:14865.45},{d:"2026-03-20",a:5070.08},{d:"2026-03-21",a:13989.4},{d:"2026-03-22",a:5408.17},{d:"2026-03-24",a:6567.54},{d:"2026-03-25",a:11148.12},{d:"2026-03-26",a:7311.94},{d:"2026-03-27",a:1784.97},{d:"2026-03-28",a:1657.4},{d:"2026-03-29",a:5641.79},{d:"2026-03-31",a:5032.91},{d:"2026-04-01",a:1740.62},{d:"2026-04-02",a:5888.12},{d:"2026-04-09",a:13107.67},{d:"2026-04-10",a:14191.85},{d:"2026-04-11",a:1572.39},{d:"2026-04-14",a:4158.74},{d:"2026-04-15",a:8276.05},{d:"2026-04-16",a:1001.25},{d:"2026-04-17",a:1727.21},{d:"2026-04-18",a:1368.09},{d:"2026-04-19",a:5166.81},{d:"2026-04-21",a:3754.4},{d:"2026-04-22",a:1105.14},{d:"2026-04-23",a:1074.15},{d:"2026-04-24",a:5748.52},{d:"2026-04-25",a:2424.26},{d:"2026-04-28",a:4427.01},{d:"2026-04-29",a:6696.92},{d:"2026-04-30",a:976.06},{d:"2026-05-01",a:1094.76},{d:"2026-05-07",a:6774.7},{d:"2026-05-08",a:8695.71},{d:"2026-05-09",a:2114.98},{d:"2026-05-12",a:3591.96},{d:"2026-05-14",a:7537.67},{d:"2026-05-15",a:994.21},{d:"2026-05-16",a:1105.52},{d:"2026-05-19",a:3325.55},{d:"2026-05-20",a:6790.5},{d:"2026-05-21",a:1129.22},{d:"2026-05-22",a:1001.8},{d:"2026-05-23",a:1064.2},{d:"2026-05-24",a:5324.56},{d:"2026-05-27",a:2425.63},{d:"2026-05-29",a:6902.54},{d:"2026-06-04",a:5689.49},{d:"2026-06-10",a:5408.95},{d:"2026-06-13",a:5119.31},{d:"2026-06-17",a:6502.04},{d:"2026-06-28",a:17652.71},{d:"2026-07-06",a:9245.05},{d:"2026-07-09",a:5145.44},{d:"2026-07-16",a:8577.08},{d:"2026-07-22",a:6879.23},{d:"2026-07-26",a:5054.41},
+  ],
+  'TESSMEL海外官方旗舰店': [
+    {d:"2026-04-14",a:1050.21},{d:"2026-04-21",a:2280.74},{d:"2026-04-22",a:8033.73},{d:"2026-05-14",a:1026.24},{d:"2026-05-19",a:1163.89},{d:"2026-05-20",a:5881.55},
+  ],
+  'VITAFOLKS海外官方旗舰店': [
+    {d:"2024-01-03",a:1947.22},{d:"2024-01-04",a:5668.8},{d:"2024-01-05",a:2409.1},{d:"2024-01-07",a:5303.59},{d:"2024-01-17",a:1355.38},{d:"2024-01-30",a:878.51},{d:"2024-03-15",a:1125.56},{d:"2024-03-17",a:5390.57},{d:"2024-03-19",a:2464.9},{d:"2024-03-21",a:6766.95},{d:"2024-03-23",a:2708.93},{d:"2024-03-24",a:5660.84},{d:"2024-03-26",a:1354.87},{d:"2024-03-27",a:4921.3},{d:"2024-03-28",a:11918.45},{d:"2024-04-10",a:4488.74},{d:"2024-04-11",a:9329.84},{d:"2024-04-23",a:1625.33},{d:"2024-04-25",a:926.21},{d:"2024-04-30",a:1665.97},{d:"2024-05-01",a:7927.59},{d:"2024-05-11",a:2367.96},{d:"2024-05-15",a:1395.54},{d:"2024-05-22",a:4113},{d:"2024-05-23",a:6678.36},{d:"2024-05-31",a:865.79},{d:"2024-06-04",a:1485.39},{d:"2024-06-05",a:6105.39},{d:"2024-06-07",a:1066.58},{d:"2024-06-12",a:1515.12},{d:"2024-06-15",a:4041.16},{d:"2024-06-16",a:10308.06},{d:"2024-06-19",a:3255.35},{d:"2024-06-22",a:1815.73},{d:"2024-06-23",a:6819.46},{d:"2024-07-03",a:2950.4},{d:"2024-07-10",a:1642},{d:"2024-07-11",a:5459.86},{d:"2024-07-23",a:969.39},{d:"2024-08-03",a:3003.65},{d:"2024-08-04",a:5185.61},{d:"2024-08-06",a:899.08},{d:"2024-08-13",a:5802.59},{d:"2024-08-14",a:14974.62},{d:"2024-08-20",a:2931.74},{d:"2024-08-21",a:8422.88},{d:"2024-08-31",a:1905.06},{d:"2024-09-13",a:4286.54},{d:"2024-09-14",a:12272.91},{d:"2024-09-20",a:4196.85},{d:"2024-09-21",a:7020.5},{d:"2024-09-24",a:4643.67},{d:"2024-09-25",a:8828.37},{d:"2024-10-01",a:1349.51},{d:"2024-10-09",a:936.85},{d:"2024-10-16",a:1184.56},{d:"2024-10-17",a:5546.71},{d:"2024-10-23",a:4594.95},{d:"2024-10-24",a:7987.37},{d:"2024-10-29",a:7737.22},{d:"2024-10-30",a:14474.72},{d:"2024-10-31",a:1040.2},{d:"2024-11-05",a:2282.57},{d:"2024-11-06",a:5830.96},{d:"2024-11-13",a:2338.63},{d:"2024-11-14",a:6155.32},{d:"2024-11-15",a:939.16},{d:"2024-11-19",a:4702.65},{d:"2024-11-20",a:8445.04},{d:"2024-11-23",a:3075.78},{d:"2024-11-24",a:5603.82},{d:"2024-11-26",a:2376.11},{d:"2024-11-28",a:5925.52},{d:"2024-11-30",a:14303.25},{d:"2024-12-06",a:21539.41},{d:"2024-12-07",a:32474.11},{d:"2024-12-10",a:2206.21},{d:"2024-12-12",a:1296.49},{d:"2024-12-13",a:5254.72},{d:"2024-12-17",a:851.81},{d:"2024-12-19",a:1219.13},{d:"2024-12-24",a:966.24},{d:"2024-12-28",a:3806.26},{d:"2024-12-29",a:9164.11},{d:"2024-12-31",a:4683.43},{d:"2025-01-01",a:9013.07},{d:"2025-01-03",a:1215.74},{d:"2025-01-07",a:18140.07},{d:"2025-01-08",a:35168.43},{d:"2025-01-10",a:1018.05},{d:"2025-01-14",a:5077.76},{d:"2025-01-15",a:15738.87},{d:"2025-01-22",a:12088.73},{d:"2025-02-08",a:13334.78},{d:"2025-02-09",a:23962.47},{d:"2025-02-19",a:954.01},{d:"2025-02-27",a:3863.16},{d:"2025-02-28",a:7111.51},{d:"2025-03-04",a:6244.47},{d:"2025-03-05",a:8632.03},{d:"2025-03-06",a:5097.83},{d:"2025-03-07",a:5340.86},{d:"2025-03-15",a:13697.44},{d:"2025-03-16",a:15275.79},{d:"2025-03-19",a:1007.9},{d:"2025-03-25",a:1042.59},{d:"2025-03-27",a:1386.36},{d:"2025-04-01",a:2707.18},{d:"2025-04-02",a:6020.14},{d:"2025-04-03",a:1107.27},{d:"2025-04-09",a:7768.29},{d:"2025-04-10",a:9614.7},{d:"2025-04-11",a:1299.18},{d:"2025-04-12",a:1494.82},{d:"2025-04-15",a:1753.28},{d:"2025-04-16",a:6143.08},{d:"2025-04-23",a:11233.55},{d:"2025-04-24",a:10512.39},{d:"2025-04-26",a:2172.03},{d:"2025-04-29",a:1204.41},{d:"2025-05-07",a:1771.91},{d:"2025-05-08",a:6737.65},{d:"2025-05-10",a:1032.4},{d:"2025-05-14",a:1386.47},{d:"2025-05-18",a:5200.34},{d:"2025-05-20",a:1140.14},{d:"2025-05-28",a:1006.84},{d:"2025-05-29",a:1831.71},{d:"2025-05-31",a:1598.36},{d:"2025-06-01",a:5226.52},{d:"2025-06-04",a:1783.74},{d:"2025-06-06",a:966.42},{d:"2025-06-10",a:1084.07},{d:"2025-06-14",a:882.53},{d:"2025-06-15",a:5091.74},{d:"2025-06-19",a:843.92},{d:"2025-06-21",a:1733.44},{d:"2025-06-24",a:2898.42},{d:"2025-06-25",a:7407.73},{d:"2025-06-26",a:1372.77},{d:"2025-06-28",a:949.06},{d:"2025-07-01",a:11506.22},{d:"2025-07-02",a:18275.05},{d:"2025-07-03",a:1653.86},{d:"2025-07-08",a:1621.66},{d:"2025-07-15",a:1632.53},{d:"2025-07-18",a:6117.45},{d:"2025-07-22",a:1319.71},{d:"2025-07-24",a:950.39},{d:"2025-08-09",a:2884.4},{d:"2025-08-10",a:6451.24},{d:"2025-08-16",a:886.06},{d:"2025-12-10",a:2009.28},{d:"2025-12-11",a:5576.28},{d:"2025-12-13",a:1005.86},{d:"2025-12-17",a:6065.22},{d:"2025-12-20",a:2983.84},{d:"2025-12-21",a:7006.69},{d:"2025-12-24",a:1202.62},{d:"2026-02-07",a:4568.8},{d:"2026-02-08",a:12591.35},{d:"2026-02-25",a:901.76},{d:"2026-04-01",a:940.15},{d:"2026-04-03",a:5140.86},{d:"2026-04-09",a:1491.2},{d:"2026-05-15",a:1005.33},{d:"2026-05-20",a:5704.58},{d:"2026-05-23",a:954.05},{d:"2026-07-16",a:8149.65},{d:"2026-07-18",a:7003.04},{d:"2026-07-24",a:13953.03},
+  ],
+};
+
+function fmtUSD(n) {
+  return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2});
+}
+
+function getLastNDays(data, n) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - n);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  return data.filter(d => d.d >= cutoffStr);
+}
+
+function renderKsWithdrawSummary() {
+  renderKsOverview();
+}
+
+function renderKsOverview() {
+  const stores = Object.keys(KS_DAILY_DATA).sort();
+  const last30Data = {};
+  let total30 = 0;
+
+  for (const store of stores) {
+    const recent = getLastNDays(KS_DAILY_DATA[store], 30);
+    const amt = recent.reduce((s, d) => s + d.a, 0);
+    last30Data[store] = { amount: amt, count: recent.length };
+    total30 += amt;
+  }
+
+  const container = document.getElementById('ksWithdrawApp');
+
+  // 最近的提现日期
+  const allDates = Object.values(KS_DAILY_DATA).flat().map(d => d.d).filter(Boolean).sort();
+  const lastDate = allDates[allDates.length - 1] || '';
+
+  container.innerHTML = `
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+      <div class="stat-card" style="cursor:pointer" onclick="renderKsOverview()">
+        <div class="num" style="color:var(--primary)">${fmtUSD(total30)}</div>
+        <div class="label">最近30天提现</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" style="color:var(--primary)">${fmtUSD(Object.values(KS_DAILY_DATA).flat().reduce((s,d)=>s+d.a,0))}</div>
+        <div class="label">历史累计（截至${lastDate}）</div>
+      </div>
+    </div>
+
+    <!-- Time filter -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${'btn-primary'}" style="width:auto" onclick="renderKsDaysView(30)">📅 最近30天</button>
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderKsDaysView(90)">最近90天</button>
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderKsDaysView(365)">今年</button>
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderKsAllView()">全部</button>
+      <span style="flex:1"></span>
+      <a href="快手提现汇总_年度月度每日_2024-01-01~2026-07-26.xlsx" class="btn btn-sm btn-outline" style="text-decoration:none;width:auto" download>📥 下载Excel</a>
+    </div>
+
+    <!-- Store cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px" id="ksStoreCards">
+      ${stores.map(store => {
+        const all = KS_DAILY_DATA[store];
+        const total = all.reduce((s, d) => s + d.a, 0);
+        const count = all.length;
+        const recent = last30Data[store];
+        return `
+          <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderKsStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px">
+              <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${fmtUSD(recent.amount)}</div><div style="font-size:11px;color:var(--text-secondary)">最近30天</div></div>
+              <div style="text-align:right"><div style="font-size:18px;font-weight:700">${fmtUSD(total)}</div><div style="font-size:11px;color:var(--text-secondary)">全部 (${count}笔)</div></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">点击查看明细 →</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <!-- 年度汇总表 -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:20px">
+      <h3 style="margin-bottom:10px;font-size:14px">📅 年度汇总</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:6px 10px">店铺</th>
+            <th style="text-align:right;padding:6px 10px">2024</th>
+            <th style="text-align:right;padding:6px 10px">2025</th>
+            <th style="text-align:right;padding:6px 10px">2026</th>
+            <th style="text-align:right;padding:6px 10px;color:var(--primary)">合计</th>
+          </tr></thead>
+          <tbody id="ksYearlyBody"></tbody>
+        </table>
+      </div>
+    </div>
   `;
 
-  // ---- 按年度汇总 ----
-  const yearlyData = [
-    { store: 'MaxHealthy海外官方旗舰店', '2024': 52293.48, '2025': 1401267.83, '2026': 558519.59 },
-    { store: 'VITAFOLKS海外官方旗舰店', '2024': 423360.08, '2025': 398536.78, '2026': 62403.80 },
-    { store: 'BioEllis海外官方旗舰店', '2024': 0, '2025': 15399.64, '2026': 204893.55 },
-    { store: 'TESSMEL海外官方旗舰店', '2024': 0, '2025': 0, '2026': 19436.36 },
-  ];
-  document.getElementById('yearlySummaryBody').innerHTML = yearlyData.map(s => `
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 12px">${s.store}</td>
-      <td style="text-align:right;padding:8px 12px">${s['2024'] ? '$'+s['2024'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
-      <td style="text-align:right;padding:8px 12px">${s['2025'] ? '$'+s['2025'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
-      <td style="text-align:right;padding:8px 12px">${s['2026'] ? '$'+s['2026'].toLocaleString('en-US',{minimumFractionDigits:2}) : '-'}</td>
-      <td style="text-align:right;padding:8px 12px;font-weight:600;color:var(--primary)">$${(s['2024']+s['2025']+s['2026']).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-    </tr>
-  `).join('');
-
-  // ---- 按月度汇总 ----
-  const monthlyData = [
-    // MaxHealthy
-    { store: 'MaxHealthy', ym: '2024-10', amount: 1005.06 },
-    { store: 'MaxHealthy', ym: '2024-11', amount: 10531.96 },
-    { store: 'MaxHealthy', ym: '2024-12', amount: 40756.46 },
-    { store: 'MaxHealthy', ym: '2025-01', amount: 89986.83 },
-    { store: 'MaxHealthy', ym: '2025-02', amount: 97271.77 },
-    { store: 'MaxHealthy', ym: '2025-03', amount: 279387.89 },
-    { store: 'MaxHealthy', ym: '2025-04', amount: 140504.63 },
-    { store: 'MaxHealthy', ym: '2025-05', amount: 61841.57 },
-    { store: 'MaxHealthy', ym: '2025-06', amount: 188211.21 },
-    { store: 'MaxHealthy', ym: '2025-07', amount: 189255.95 },
-    { store: 'MaxHealthy', ym: '2025-08', amount: 44807.95 },
-    { store: 'MaxHealthy', ym: '2025-11', amount: 1042.97 },
-    { store: 'MaxHealthy', ym: '2025-12', amount: 31260.43 },
-    { store: 'MaxHealthy', ym: '2026-01', amount: 85111.82 },
-    { store: 'MaxHealthy', ym: '2026-02', amount: 96727.23 },
-    { store: 'MaxHealthy', ym: '2026-03', amount: 77962.45 },
-    { store: 'MaxHealthy', ym: '2026-04', amount: 71182.81 },
-    { store: 'MaxHealthy', ym: '2026-05', amount: 52129.15 },
-    { store: 'MaxHealthy', ym: '2026-06', amount: 22200.79 },
-    { store: 'MaxHealthy', ym: '2026-07', amount: 51350.34 },
-    // VITAFOLKS
-    { store: 'VITAFOLKS', ym: '2024-01', amount: 17562.60 },
-    { store: 'VITAFOLKS', ym: '2024-03', amount: 40438.12 },
-    { store: 'VITAFOLKS', ym: '2024-04', amount: 14034.09 },
-    { store: 'VITAFOLKS', ym: '2024-05', amount: 26001.27 },
-    { store: 'VITAFOLKS', ym: '2024-06', amount: 30871.42 },
-    { store: 'VITAFOLKS', ym: '2024-07', amount: 11021.65 },
-    { store: 'VITAFOLKS', ym: '2024-08', amount: 41186.80 },
-    { store: 'VITAFOLKS', ym: '2024-09', amount: 41248.81 },
-    { store: 'VITAFOLKS', ym: '2024-10', amount: 48297.11 },
-    { store: 'VITAFOLKS', ym: '2024-11', amount: 54457.49 },
-    { store: 'VITAFOLKS', ym: '2024-12', amount: 97940.72 },
-    { store: 'VITAFOLKS', ym: '2025-01', amount: 96560.92 },
-    { store: 'VITAFOLKS', ym: '2025-02', amount: 48882.51 },
-    { store: 'VITAFOLKS', ym: '2025-03', amount: 62161.27 },
-    { store: 'VITAFOLKS', ym: '2025-04', amount: 51990.17 },
-    { store: 'VITAFOLKS', ym: '2025-05', amount: 20380.89 },
-    { store: 'VITAFOLKS', ym: '2025-06', amount: 25007.80 },
-    { store: 'VITAFOLKS', ym: '2025-07', amount: 45581.83 },
-    { store: 'VITAFOLKS', ym: '2025-08', amount: 10221.70 },
-    { store: 'VITAFOLKS', ym: '2025-12', amount: 27749.69 },
-    { store: 'VITAFOLKS', ym: '2026-02', amount: 18061.91 },
-    { store: 'VITAFOLKS', ym: '2026-04', amount: 7572.21 },
-    { store: 'VITAFOLKS', ym: '2026-05', amount: 7663.96 },
-    { store: 'VITAFOLKS', ym: '2026-07', amount: 29105.72 },
-    // BioEllis
-    { store: 'BioEllis', ym: '2025-11', amount: 2997.26 },
-    { store: 'BioEllis', ym: '2025-12', amount: 12402.38 },
-    { store: 'BioEllis', ym: '2026-01', amount: 76051.41 },
-    { store: 'BioEllis', ym: '2026-02', amount: 45969.36 },
-    { store: 'BioEllis', ym: '2026-03', amount: 29521.99 },
-    { store: 'BioEllis', ym: '2026-04', amount: 49055.01 },
-    { store: 'BioEllis', ym: '2026-05', amount: 32918.59 },
-    { store: 'BioEllis', ym: '2026-06', amount: 10410.86 },
-    { store: 'BioEllis', ym: '2026-07', amount: 5081.11 },
-    // TESSMEL
-    { store: 'TESSMEL', ym: '2026-04', amount: 11364.68 },
-    { store: 'TESSMEL', ym: '2026-05', amount: 8071.68 },
-  ];
-
-  const storeOrder = ['MaxHealthy', 'VITAFOLKS', 'BioEllis', 'TESSMEL'];
-  const container = document.getElementById('monthlySummaryContainer');
-  let html = '';
-  for (const storeName of storeOrder) {
-    const items = monthlyData.filter(d => d.store === storeName).sort((a, b) => a.ym.localeCompare(b.ym));
-    const totalAmt = items.reduce((s, x) => s + x.amount, 0);
-    html += '<div style="margin-bottom:16px">';
-    html += '<div style="font-weight:600;margin-bottom:6px;font-size:14px">' + storeName + '海外官方旗舰店 <span style="color:var(--text-secondary);font-weight:400">合计: $' + totalAmt.toLocaleString('en-US',{minimumFractionDigits:2}) + '</span></div>';
-    html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
-    html += '<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px 10px">月份</th><th style="text-align:right;padding:6px 10px">提现金额（USD）</th></tr></thead><tbody>';
-    for (const item of items) {
-      const [y, m] = item.ym.split('-');
-      html += '<tr style="border-bottom:1px solid #eee"><td style="padding:5px 10px">' + y + '年' + parseInt(m) + '月</td><td style="text-align:right;padding:5px 10px">$' + item.amount.toLocaleString('en-US',{minimumFractionDigits:2}) + '</td></tr>';
+  // 年度汇总数据
+  const yearly = {};
+  for (const [store, days] of Object.entries(KS_DAILY_DATA)) {
+    for (const d of days) {
+      const y = d.d.split('-')[0];
+      const key = store + '|' + y;
+      yearly[key] = (yearly[key] || 0) + d.a;
     }
-    html += '</tbody></table></div>';
   }
-  container.innerHTML = html;
+  const storeNames = Object.keys(KS_DAILY_DATA).sort();
+  document.getElementById('ksYearlyBody').innerHTML = storeNames.map(s => {
+    const y2024 = yearly[s+'|2024'] || 0;
+    const y2025 = yearly[s+'|2025'] || 0;
+    const y2026 = yearly[s+'|2026'] || 0;
+    const total = y2024 + y2025 + y2026;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px">${s.replace('海外官方旗舰店','')}</td>
+      <td style="text-align:right;padding:6px 10px">${y2024 ? fmtUSD(y2024) : '-'}</td>
+      <td style="text-align:right;padding:6px 10px">${y2025 ? fmtUSD(y2025) : '-'}</td>
+      <td style="text-align:right;padding:6px 10px">${y2026 ? fmtUSD(y2026) : '-'}</td>
+      <td style="text-align:right;padding:6px 10px;font-weight:600;color:var(--primary)">${fmtUSD(total)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderKsDaysView(days) {
+  const stores = Object.keys(KS_DAILY_DATA).sort();
+  const container = document.getElementById('ksStoreCards');
+
+  container.innerHTML = stores.map(store => {
+    const filtered = getLastNDays(KS_DAILY_DATA[store], days);
+    const total = filtered.reduce((s, d) => s + d.a, 0);
+    const count = filtered.length;
+    return `
+      <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderKsStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${fmtUSD(total)}</div><div style="font-size:11px;color:var(--text-secondary)">最近${days}天</div></div>
+          <div style="text-align:right"><div style="font-size:13px;color:var(--text-secondary)">${count} 笔</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">点击查看明细 →</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderKsAllView() {
+  const stores = Object.keys(KS_DAILY_DATA).sort();
+  const container = document.getElementById('ksStoreCards');
+
+  container.innerHTML = stores.map(store => {
+    const all = KS_DAILY_DATA[store];
+    const total = all.reduce((s, d) => s + d.a, 0);
+    const count = all.length;
+    return `
+      <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderKsStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${fmtUSD(total)}</div><div style="font-size:11px;color:var(--text-secondary)">全部</div></div>
+          <div style="text-align:right"><div style="font-size:13px;color:var(--text-secondary)">${count} 笔</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">点击查看明细 →</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderKsStoreDetail(storeName) {
+  const days = KS_DAILY_DATA[storeName] || [];
+  const total = days.reduce((s, d) => s + d.a, 0);
+  const shortName = storeName.replace('海外官方旗舰店', '');
+  const container = document.getElementById('ksWithdrawApp');
+
+  // 按月分组
+  const byMonth = {};
+  for (const d of days) {
+    const ym = d.d.substring(0, 7);
+    if (!byMonth[ym]) byMonth[ym] = [];
+    byMonth[ym].push(d);
+  }
+  const months = Object.keys(byMonth).sort().reverse();
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderKsOverview()">← 返回总览</button>
+    </div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;font-size:18px">${esc(shortName)}</h3>
+          <div style="font-size:12px;color:var(--text-secondary)">${days.length} 笔提现记录</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:700;color:var(--primary)">${fmtUSD(total)}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">累计提现（USD）</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ksStoreDetailContent">
+      ${months.map(ym => {
+        const items = byMonth[ym].sort((a,b) => b.d.localeCompare(a.d));
+        const monthTotal = items.reduce((s, d) => s + d.a, 0);
+        const [y, m] = ym.split('-');
+        return `
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden">
+            <div style="padding:10px 16px;background:var(--bg-secondary);display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14px;cursor:pointer" onclick="toggleKsMonth('${ym}')">
+              <span>${y}年${parseInt(m)}月</span>
+              <span style="color:var(--primary)">${fmtUSD(monthTotal)}</span>
+            </div>
+            <div id="ksMonth_${ym}" style="display:${months.indexOf(ym) < 3 ? 'block' : 'none'}">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead><tr style="border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;padding:8px 16px">日期</th>
+                  <th style="text-align:right;padding:8px 16px">提现金额（USD）</th>
+                </tr></thead>
+                <tbody>
+                  ${items.map(d => `
+                    <tr style="border-bottom:1px solid #eee">
+                      <td style="padding:6px 16px">${d.d}</td>
+                      <td style="text-align:right;padding:6px 16px;font-weight:500">${fmtUSD(d.a)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function toggleKsMonth(ym) {
+  const el = document.getElementById('ksMonth_' + ym);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 // ====================================================================
