@@ -37,14 +37,23 @@ function formatMoney(n) { return '¥'+Number(n||0).toFixed(2); }
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+  const btns = document.querySelectorAll('.tab-btn');
   if (tab === 'withdraw') {
-    document.querySelector('.tab-btn').classList.add('active');
+    btns[0].classList.add('active');
     document.getElementById('tabWithdraw').classList.remove('hidden');
     renderWithdraw();
-  } else {
-    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  } else if (tab === 'inventory') {
+    btns[1].classList.add('active');
     document.getElementById('tabInventory').classList.remove('hidden');
     renderInventory();
+  } else if (tab === 'orders') {
+    btns[2].classList.add('active');
+    document.getElementById('tabOrders').classList.remove('hidden');
+    renderDdOverview();
+  } else if (tab === 'account') {
+    btns[3].classList.add('active');
+    document.getElementById('tabAccount').classList.remove('hidden');
+    renderAcctOverview();
   }
 }
 
@@ -884,3 +893,343 @@ function exportInventory() {
 
 // ===== 初始化 =====
 switchTab('withdraw');
+
+// ====================================================================
+// 抖店订单售后（数据由「订单售后导出系统」部署生成 dd_order_data.js）
+// ====================================================================
+function ddData() {
+  const D = window.DD_ORDER_DATA;
+  return D && D.stores ? D : { range: '', updatedAt: '', xlsx: '', stats: { orderCount: 0, orderAmount: 0, refundCount: 0, refundAmount: 0 }, stores: {} };
+}
+
+function ddSumDays(days, n) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - n);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const out = { o: 0, a: 0, r: 0, ra: 0 };
+  for (const d of (days || [])) {
+    if (d.d >= cutoffStr) { out.o += d.o; out.a += d.a; out.r += d.r; out.ra += d.ra; }
+  }
+  return out;
+}
+
+function renderDdOverview() {
+  const D = ddData();
+  const stores = Object.keys(D.stores).sort();
+  const container = document.getElementById('ddOrderApp');
+  const hasData = stores.length > 0 && D.stats.orderCount > 0;
+
+  if (!hasData) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>暂无订单售后数据</p><p style="font-size:12px;color:var(--text-secondary)">使用「订单售后导出系统」导出并部署后，数据会显示在这里。</p></div>';
+    return;
+  }
+
+  let t30 = { o: 0, a: 0, r: 0, ra: 0 };
+  for (const s of stores) {
+    const r = ddSumDays(D.stores[s].days, 30);
+    t30.o += r.o; t30.a += r.a; t30.r += r.r; t30.ra += r.ra;
+  }
+
+  container.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">数据范围 ${D.range || '-'} · 更新于 ${D.updatedAt || '-'}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat-card"><div class="num" style="color:var(--primary)">${formatMoney(t30.a)}</div><div class="label">最近30天订单金额</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--primary)">${t30.o}</div><div class="label">最近30天订单量</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--danger)">${t30.r}</div><div class="label">最近30天售后</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--warning)">${formatMoney(t30.ra)}</div><div class="label">最近30天退款</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--success)">${D.stats.orderCount}</div><div class="label">订单总数</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--danger)">${D.stats.refundCount}</div><div class="label">售后总数</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--warning)">${formatMoney(D.stats.refundAmount)}</div><div class="label">累计退款</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" style="width:auto" onclick="renderDdDaysView(30)">📅 最近30天</button>
+        <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderDdDaysView(90)">最近90天</button>
+        <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderDdDaysView(365)">今年</button>
+        <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderDdAllView()">全部</button>
+        <span style="flex:1"></span>
+        ${D.xlsx ? `<a href="${D.xlsx}" class="btn btn-sm btn-outline" style="text-decoration:none;width:auto" download>📥 下载Excel</a>` : ''}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px" id="ddStoreCards">
+      ${stores.map(store => {
+        const s = D.stores[store];
+        const recent = ddSumDays(s.days, 30);
+        return `
+          <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderDdStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px">
+              <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${formatMoney(recent.a)}</div><div style="font-size:11px;color:var(--text-secondary)">最近30天</div></div>
+              <div style="text-align:right"><div style="font-size:18px;font-weight:700">${formatMoney(s.orderAmount)}</div><div style="font-size:11px;color:var(--text-secondary)">全部 (${s.orderCount}单)</div></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">售后 ${s.refundCount} 单 · 点击查看明细 →</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderDdDaysView(n) {
+  const D = ddData();
+  const container = document.getElementById('ddStoreCards');
+  container.innerHTML = Object.keys(D.stores).sort().map(store => {
+    const recent = ddSumDays(D.stores[store].days, n);
+    return `
+      <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderDdStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${formatMoney(recent.a)}</div><div style="font-size:11px;color:var(--text-secondary)">最近${n}天</div></div>
+          <div style="text-align:right"><div style="font-size:13px;color:var(--text-secondary)">${recent.o} 单</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">售后 ${recent.r} 单 · 点击查看明细 →</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderDdAllView() {
+  const D = ddData();
+  const container = document.getElementById('ddStoreCards');
+  container.innerHTML = Object.keys(D.stores).sort().map(store => {
+    const s = D.stores[store];
+    return `
+      <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderDdStoreDetail('${esc(store)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(store.replace('海外官方旗舰店',''))}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <div><div style="font-size:18px;font-weight:700;color:var(--primary)">${formatMoney(s.orderAmount)}</div><div style="font-size:11px;color:var(--text-secondary)">全部</div></div>
+          <div style="text-align:right"><div style="font-size:13px;color:var(--text-secondary)">${s.orderCount} 单</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">售后 ${s.refundCount} 单 · 点击查看明细 →</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderDdStoreDetail(storeName) {
+  const D = ddData();
+  const s = D.stores[storeName];
+  if (!s) return;
+  const container = document.getElementById('ddOrderApp');
+  const shortName = storeName.replace('海外官方旗舰店', '');
+
+  const byMonth = {};
+  for (const d of (s.days || [])) {
+    const ym = d.d.substring(0, 7);
+    if (!byMonth[ym]) byMonth[ym] = [];
+    byMonth[ym].push(d);
+  }
+  const months = Object.keys(byMonth).sort().reverse();
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderDdOverview()">← 返回总览</button>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;font-size:18px">${esc(shortName)}</h3>
+          <div style="font-size:12px;color:var(--text-secondary)">${s.orderCount} 单 · 售后 ${s.refundCount} 单</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:700;color:var(--primary)">${formatMoney(s.orderAmount)}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">订单金额</div>
+          <div style="font-size:13px;color:var(--warning);margin-top:4px">退款 ${formatMoney(s.refundAmount)}</div>
+        </div>
+      </div>
+    </div>
+    ${months.map(ym => {
+      const items = byMonth[ym].sort((a,b) => b.d.localeCompare(a.d));
+      const mt = items.reduce((t, d) => ({ o: t.o+d.o, a: t.a+d.a, r: t.r+d.r, ra: t.ra+d.ra }), { o:0,a:0,r:0,ra:0 });
+      const [y, m] = ym.split('-');
+      return `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden">
+          <div style="padding:10px 16px;background:var(--bg-secondary);display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14px;cursor:pointer" onclick="toggleDdMonth('${ym}')">
+            <span>${y}年${parseInt(m)}月</span>
+            <span style="color:var(--primary)">${formatMoney(mt.a)}（${mt.o}单）</span>
+          </div>
+          <div id="ddMonth_${ym}" style="display:${months.indexOf(ym) < 3 ? 'block' : 'none'}">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:8px 16px">日期</th>
+                <th style="text-align:right;padding:8px 16px">订单数</th>
+                <th style="text-align:right;padding:8px 16px">订单金额</th>
+                <th style="text-align:right;padding:8px 16px">售后数</th>
+                <th style="text-align:right;padding:8px 16px">退款金额</th>
+              </tr></thead>
+              <tbody>
+                ${items.map(d => `
+                  <tr style="border-bottom:1px solid #eee">
+                    <td style="padding:6px 16px">${d.d}</td>
+                    <td style="text-align:right;padding:6px 16px">${d.o}</td>
+                    <td style="text-align:right;padding:6px 16px;font-weight:500">${formatMoney(d.a)}</td>
+                    <td style="text-align:right;padding:6px 16px">${d.r || '-'}</td>
+                    <td style="text-align:right;padding:6px 16px">${d.ra ? formatMoney(d.ra) : '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function toggleDdMonth(ym) {
+  const el = document.getElementById('ddMonth_' + ym);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ====================================================================
+// 抖店账户中心（数据由「店铺自动对账系统」抓取部署生成 dd_account_data.js）
+// ====================================================================
+function acctData() {
+  const D = window.DD_ACCOUNT_DATA;
+  return D && D.stores ? D : { updatedAt: '', storeCount: 0, stores: {} };
+}
+
+function fmtUsd(n) { return n == null ? '—' : '$' + Number(n).toFixed(2); }
+
+function acctShort(name) { return name.replace('海外官方旗舰店', '').replace('海外专卖店', ''); }
+
+function acctGoodsNum(store, key, field) {
+  const g = store.goods && store.goods[key];
+  return g && g[field] != null ? g[field] : 0;
+}
+
+function renderAcctOverview() {
+  const D = acctData();
+  const container = document.getElementById('acctApp');
+  const stores = Object.keys(D.stores);
+  if (stores.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">💰</div><p>暂无账户中心数据</p><p style="font-size:12px;color:var(--text-secondary)">使用「店铺自动对账系统」抓取并部署后，数据会显示在这里。</p></div>';
+    return;
+  }
+  let usdTotal = 0, rmbTotal = 0, settleTotal = 0, exchangeTotal = 0, debtShops = 0;
+  for (const name of stores) {
+    const s = D.stores[name];
+    usdTotal += acctGoodsNum(s, 'usd', 'withdrawable');
+    rmbTotal += acctGoodsNum(s, 'rmb', 'withdrawable');
+    settleTotal += (s.pending && s.pending.toSettle) || 0;
+    exchangeTotal += (s.pending && s.pending.toExchange) || 0;
+    if (s.supply && s.supply.debt) debtShops++;
+  }
+  container.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">更新于 ${D.updatedAt || '-'} · 共 ${stores.length} 家店铺</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div class="stat-card"><div class="num" style="color:var(--primary)">${fmtUsd(usdTotal)}</div><div class="label">可提现(USD)合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--primary)">${rmbTotal ? formatMoney(rmbTotal) : '—'}</div><div class="label">可提现(RMB)合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--warning)">${formatMoney(settleTotal)}</div><div class="label">待结算合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--text)">${formatMoney(exchangeTotal)}</div><div class="label">待换汇合计</div></div>
+        <div class="stat-card"><div class="num" style="color:${debtShops ? 'var(--danger)' : 'var(--success)'}">${debtShops}</div><div class="label">供应链欠费店铺</div></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px" id="acctStoreCards">
+      ${stores.sort().map(name => {
+        const s = D.stores[name];
+        const usd = s.goods && s.goods.usd;
+        const rmb = s.goods && s.goods.rmb;
+        const depTotal = ((s.deposit && s.deposit.baseBalance) || 0) + ((s.deposit && s.deposit.expBalance) || 0);
+        const debt = s.supply && s.supply.debt;
+        return `
+          <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderAcctStoreDetail('${esc(name)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(acctShort(name))}</div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px">
+              <div>
+                <div style="font-size:18px;font-weight:700;color:var(--primary)">${usd ? fmtUsd(usd.withdrawable) : (rmb ? formatMoney(rmb.withdrawable) : '—')}</div>
+                <div style="font-size:11px;color:var(--text-secondary)">可提现 ${usd ? '(USD)' : '(RMB)'}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:18px;font-weight:700">${formatMoney((s.pending && s.pending.toSettle) || 0)}</div>
+                <div style="font-size:11px;color:var(--text-secondary)">待结算</div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">保证金 ${formatMoney(depTotal)} · ${debt ? `<span style="color:var(--danger)">供应链欠费 ${formatMoney(debt)}</span>` : '供应链正常'} · 点击查看 →</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderAcctStoreDetail(name) {
+  const D = acctData();
+  const s = D.stores[name];
+  if (!s) return;
+  const container = document.getElementById('acctApp');
+  const usd = s.goods && s.goods.usd;
+  const rmb = s.goods && s.goods.rmb;
+  const dep = s.deposit || {};
+  const pend = s.pending || {};
+  const sup = s.supply || {};
+
+  const moneyRow = (label, v, symbol) => `<tr style="border-bottom:1px solid #eee"><td style="padding:6px 16px;color:var(--text-secondary)">${label}</td><td style="text-align:right;padding:6px 16px;font-weight:600">${v == null ? '—' : symbol + Number(v).toFixed(2)}</td></tr>`;
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-sm btn-outline" style="width:auto" onclick="renderAcctOverview()">← 返回总览</button>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;font-size:18px">${esc(name)}</h3>
+          <div style="font-size:12px;color:var(--text-secondary)">更新于 ${D.updatedAt || '-'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:700;color:var(--primary)">${usd ? fmtUsd(usd.withdrawable) : (rmb ? formatMoney(rmb.withdrawable) : '—')}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">当前可提现</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+      ${usd ? `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <h4 style="margin:0 0 8px;font-size:14px">💵 货款账户（USD）</h4>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            ${moneyRow('可提现', usd.withdrawable, '$')}
+            ${moneyRow('提现中', usd.withdrawing, '$')}
+            ${moneyRow('冻结款', usd.frozen, '$')}
+          </table>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:10px;border-top:1px dashed var(--border);padding-top:8px">
+            <div>账户名称：${esc(usd.accountName || '—')}</div>
+            <div>银行账户：${esc(usd.bankAccount || '—')}</div>
+            <div>开户行：${esc(usd.bankName || '—')}</div>
+          </div>
+        </div>` : ''}
+      ${rmb ? `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <h4 style="margin:0 0 8px;font-size:14px">💰 货款账户（RMB）</h4>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            ${moneyRow('可提现', rmb.withdrawable, '¥')}
+            ${moneyRow('提现中', rmb.withdrawing, '¥')}
+            ${moneyRow('冻结款', rmb.frozen, '¥')}
+          </table>
+        </div>` : ''}
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <h4 style="margin:0 0 8px;font-size:14px">🏦 保证金账户</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          ${moneyRow('基础保证金', dep.baseBalance, '¥')}
+          ${moneyRow('基础应缴', dep.baseDue, '¥')}
+          ${moneyRow('体验保证金', dep.expBalance, '¥')}
+          ${moneyRow('体验应缴', dep.expDue, '¥')}
+        </table>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <h4 style="margin:0 0 8px;font-size:14px">⏳ 待结算账户</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          ${moneyRow('待换汇', pend.toExchange, '¥')}
+          ${moneyRow('待结算', pend.toSettle, '¥')}
+        </table>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <h4 style="margin:0 0 8px;font-size:14px">📦 供应链账户</h4>
+        <div style="font-size:13px;color:var(--text-secondary)">
+          <div>余额：${sup.masked ? '🔒 平台打码（需登录抖店查看）' : '—'}</div>
+          ${sup.debt ? `<div style="color:var(--danger);margin-top:8px;font-weight:600">⚠ 当前供应链账户已欠费 ${formatMoney(sup.debt)}，可从货款账户划扣，请及时充值避免影响履约。</div>` : `<div style="color:var(--success);margin-top:8px">✓ 供应链账户无欠费</div>`}
+        </div>
+      </div>
+    </div>
+  `;
+}
