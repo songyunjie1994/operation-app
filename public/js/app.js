@@ -1103,11 +1103,12 @@ function renderAcctOverview() {
   const container = document.getElementById('acctApp');
   const stores = Object.keys(D.stores);
   if (stores.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">💰</div><p>暂无账户中心数据</p><p style="font-size:12px;color:var(--text-secondary)">使用「店铺自动对账系统」抓取并部署后，数据会显示在这里。</p></div>';
+    container.innerHTML = '<div class="empty-state"><div class="icon">💰</div><p>暂无账户中心数据</p><p style="font-size:12px;color:var(--text-secondary)">使用「账户中心抓取工具」或「店铺自动对账系统」抓取并部署后，数据会显示在这里。</p></div>';
     return;
   }
   let usdTotal = 0, rmbTotal = 0, settleTotal = 0, exchangeTotal = 0, debtShops = 0;
   let usdFrozen = 0, rmbFrozen = 0;
+  let invTotal = 0, invAvailable = 0, invStockoutShops = 0;
   for (const name of stores) {
     const s = D.stores[name];
     usdTotal += acctGoodsNum(s, 'usd', 'withdrawable');
@@ -1117,6 +1118,11 @@ function renderAcctOverview() {
     settleTotal += (s.pending && s.pending.toSettle) || 0;
     exchangeTotal += (s.pending && s.pending.toExchange) || 0;
     if (s.supply && s.supply.debt) debtShops++;
+    if (s.inventory && s.inventory.items) {
+      invTotal += s.inventory.items.length;
+      for (const it of s.inventory.items) invAvailable += it.available || 0;
+      if (s.inventory.stockoutRatio != null && s.inventory.stockoutRatio > 0) invStockoutShops++;
+    }
   }
   container.innerHTML = `
     <div style="margin-bottom:16px">
@@ -1129,6 +1135,8 @@ function renderAcctOverview() {
         <div class="stat-card"><div class="num" style="color:var(--text)">${formatMoney(settleTotal)}</div><div class="label">待结算合计</div></div>
         <div class="stat-card"><div class="num" style="color:var(--text)">${formatMoney(exchangeTotal)}</div><div class="label">待换汇合计</div></div>
         <div class="stat-card"><div class="num" style="color:${debtShops ? 'var(--danger)' : 'var(--success)'}">${debtShops}</div><div class="label">供应链欠费店铺</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--text)">${invTotal.toLocaleString()}</div><div class="label">货品库存条目</div></div>
+        <div class="stat-card"><div class="num" style="color:${invStockoutShops ? 'var(--danger)' : 'var(--text)'}">${invAvailable.toLocaleString()}</div><div class="label">现货可分配合计</div></div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px" id="acctStoreCards">
@@ -1138,6 +1146,7 @@ function renderAcctOverview() {
         const rmb = s.goods && s.goods.rmb;
         const depTotal = ((s.deposit && s.deposit.baseBalance) || 0) + ((s.deposit && s.deposit.expBalance) || 0);
         const debt = s.supply && s.supply.debt;
+        const invCount = (s.inventory && s.inventory.items) ? s.inventory.items.length : 0;
         return `
           <div class="stat-card" style="cursor:pointer;transition:transform .15s;padding:16px" onclick="renderAcctStoreDetail('${esc(name)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
             <div style="font-weight:600;font-size:14px;margin-bottom:4px">${esc(acctShort(name))}</div>
@@ -1151,12 +1160,89 @@ function renderAcctOverview() {
                 <div style="font-size:11px;color:var(--text-secondary)">待结算</div>
               </div>
             </div>
-            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">保证金 ${formatMoney(depTotal)} · ${debt ? `<span style="color:var(--danger)">供应链欠费 ${formatMoney(debt)}</span>` : '供应链正常'} · 点击查看 →</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">保证金 ${formatMoney(depTotal)} · ${debt ? `<span style="color:var(--danger)">供应链欠费 ${formatMoney(debt)}</span>` : '供应链正常'} · 货品库存 ${invCount} 条 · 点击查看 →</div>
           </div>
         `;
       }).join('')}
     </div>
   `;
+}
+
+// 货品库存明细表（供应链货品库存：每货品×仓库一行）
+function acctInventoryHTML(s) {
+  const inv = s.inventory;
+  if (!inv || !inv.items || inv.items.length === 0) {
+    return `
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:12px">
+        <h4 style="margin:0 0 8px;font-size:14px">📦 供应链货品库存</h4>
+        <div style="font-size:13px;color:var(--text-secondary)">暂无货品库存数据</div>
+      </div>`;
+  }
+  const items = inv.items;
+  const stockoutRatio = inv.stockoutRatio;
+  const stockout = items.filter((it) => !(it.available > 0)).length;
+  const sum = (f) => items.reduce((a, it) => a + (it[f] != null ? it[f] : 0), 0);
+  const rows = items.map((it) => {
+    const out = !(it.available > 0);
+    const tag = it.tags && it.tags.length ? `<div style="font-size:11px;color:var(--primary)">${esc(it.tags.join(' · '))}</div>` : '';
+    return `
+      <tr style="${out ? 'background:rgba(211,47,47,0.06)' : ''}">
+        <td style="padding:6px 10px">
+          <div style="font-weight:600">${esc(it.name || '—')}</div>
+          <div style="font-size:11px;color:var(--text-secondary)">${it.code ? '编码 ' + esc(it.code) : ''}${it.cargoId ? ' · ID ' + esc(it.cargoId) : ''}</div>
+          ${tag}
+        </td>
+        <td style="padding:6px 10px;font-size:12px;color:var(--text-secondary)">${esc(it.warehouse || it.warehouseType || '—')}</td>
+        <td style="padding:6px 10px;text-align:right;${out ? 'color:var(--danger);font-weight:700' : ''}">${it.available}</td>
+        <td style="padding:6px 10px;text-align:right">${it.allocated}</td>
+        <td style="padding:6px 10px;text-align:right">${it.preAvailable}</td>
+        <td style="padding:6px 10px;text-align:right">${it.preAllocated}</td>
+        <td style="padding:6px 10px;text-align:right">${it.transferInTransit}</td>
+        <td style="padding:6px 10px;text-align:right">${it.pickupOccupy}</td>
+        <td style="padding:6px 10px;text-align:right">${it.defective}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <h4 style="margin:0;font-size:14px">📦 供应链货品库存 <span style="color:var(--text-secondary);font-weight:400">${items.length} 条</span></h4>
+        <div style="font-size:12px">
+          ${stockoutRatio != null ? `<span style="color:${stockoutRatio > 0 ? 'var(--danger)' : 'var(--success)'}">缺货货品预估GMV占比 ${stockoutRatio}%</span>` : ''}
+          ${stockout > 0 ? `<span style="color:var(--danger);margin-left:8px">现货为0：${stockout} 条</span>` : ''}
+        </div>
+      </div>
+      <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:820px">
+          <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
+            <tr style="text-align:left;color:var(--text-secondary);border-bottom:1px solid var(--border)">
+              <th style="padding:6px 10px">货品信息</th>
+              <th style="padding:6px 10px">仓库</th>
+              <th style="padding:6px 10px;text-align:right">现货可分配</th>
+              <th style="padding:6px 10px;text-align:right">现货已分配</th>
+              <th style="padding:6px 10px;text-align:right">预售可分配</th>
+              <th style="padding:6px 10px;text-align:right">预售已分配</th>
+              <th style="padding:6px 10px;text-align:right">在途</th>
+              <th style="padding:6px 10px;text-align:right">提货占用</th>
+              <th style="padding:6px 10px;text-align:right">次品</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="border-top:2px solid var(--border);font-weight:700;background:rgba(0,0,0,0.02)">
+              <td style="padding:6px 10px">合计</td>
+              <td></td>
+              <td style="padding:6px 10px;text-align:right">${sum('available')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('allocated')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('preAvailable')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('preAllocated')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('transferInTransit')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('pickupOccupy')}</td>
+              <td style="padding:6px 10px;text-align:right">${sum('defective')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function renderAcctStoreDetail(name) {
@@ -1236,5 +1322,6 @@ function renderAcctStoreDetail(name) {
         </div>
       </div>
     </div>
+    ${acctInventoryHTML(s)}
   `;
 }
