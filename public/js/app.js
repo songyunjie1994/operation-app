@@ -1107,10 +1107,13 @@ function renderAcctOverview() {
     return;
   }
   let usdTotal = 0, rmbTotal = 0, settleTotal = 0, exchangeTotal = 0, debtShops = 0;
+  let usdFrozen = 0, rmbFrozen = 0;
   for (const name of stores) {
     const s = D.stores[name];
     usdTotal += acctGoodsNum(s, 'usd', 'withdrawable');
     rmbTotal += acctGoodsNum(s, 'rmb', 'withdrawable');
+    usdFrozen += acctGoodsNum(s, 'usd', 'frozen');
+    rmbFrozen += acctGoodsNum(s, 'rmb', 'frozen');
     settleTotal += (s.pending && s.pending.toSettle) || 0;
     exchangeTotal += (s.pending && s.pending.toExchange) || 0;
     if (s.supply && s.supply.debt) debtShops++;
@@ -1121,7 +1124,9 @@ function renderAcctOverview() {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
         <div class="stat-card"><div class="num" style="color:var(--primary)">${fmtUsd(usdTotal)}</div><div class="label">可提现(USD)合计</div></div>
         <div class="stat-card"><div class="num" style="color:var(--primary)">${rmbTotal ? formatMoney(rmbTotal) : '—'}</div><div class="label">可提现(RMB)合计</div></div>
-        <div class="stat-card"><div class="num" style="color:var(--warning)">${formatMoney(settleTotal)}</div><div class="label">待结算合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--warning)">${fmtUsd(usdFrozen)}</div><div class="label">冻结款(USD)合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--warning)">${rmbFrozen ? formatMoney(rmbFrozen) : '—'}</div><div class="label">冻结款(RMB)合计</div></div>
+        <div class="stat-card"><div class="num" style="color:var(--text)">${formatMoney(settleTotal)}</div><div class="label">待结算合计</div></div>
         <div class="stat-card"><div class="num" style="color:var(--text)">${formatMoney(exchangeTotal)}</div><div class="label">待换汇合计</div></div>
         <div class="stat-card"><div class="num" style="color:${debtShops ? 'var(--danger)' : 'var(--success)'}">${debtShops}</div><div class="label">供应链欠费店铺</div></div>
       </div>
