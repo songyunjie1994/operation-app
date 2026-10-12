@@ -2,7 +2,7 @@
 const BASE='https://mabxdkjqilulkrmqrrgo.supabase.co',KEY='sb_publishable_lfHpd1y1gCaQIDXfRkD_8w_O1bPMWGx',STORAGE='acct-console-session';
 const $=id=>document.getElementById(id),label={success:'成功',partial:'部分失败',failed:'失败',skipped:'已跳过',stale:'过期，保留上次数据',queued:'排队中',running:'运行中',done:'完成'};
 let session=null,busy=false;
-try{session=JSON.parse(localStorage.getItem(STORAGE)||localStorage.getItem('qca-console-session')||'null')}catch{}
+try{session=JSON.parse(localStorage.getItem(STORAGE)||'null')}catch{}
 function message(s){$('notice').textContent=s||''}
 function el(tag,text,cls){const e=document.createElement(tag);if(text!=null)e.textContent=String(text);if(cls)e.className=cls;return e}
 function date(v){if(!v)return '—';if(/Z$|\+\d\d:\d\d$/.test(v))return new Date(v).toLocaleString('zh-CN',{hour12:false});return v}
