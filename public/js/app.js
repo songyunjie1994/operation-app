@@ -1242,7 +1242,46 @@ function acctData() {
   return D && D.stores ? D : { updatedAt: '', storeCount: 0, stores: {} };
 }
 
+// 账户板块优先读云端快照（acct-center 只读脱敏接口），静态文件作为断网兜底。
+const ACCT_API = 'https://mabxdkjqilulkrmqrrgo.supabase.co/functions/v1/acct-center';
+let ACCT_CLOUD = { data: null, at: 0, loading: null };
+
+async function loadAcctCloud(force) {
+  const fresh = ACCT_CLOUD.data && Date.now() - ACCT_CLOUD.at < 60000;
+  if (fresh && !force) return ACCT_CLOUD.data;
+  if (ACCT_CLOUD.loading) return ACCT_CLOUD.loading;
+  ACCT_CLOUD.loading = fetch(ACCT_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'public_snapshot' })
+  })
+    .then((r) => r.json())
+    .then((body) => {
+      const snap = (body.snapshots || [])[0];
+      if (!snap || !snap.stores || Object.keys(snap.stores).length === 0) return null;
+      const data = {
+        updatedAt: snap.updatedAt,
+        storeCount: Object.keys(snap.stores).length,
+        failedStores: snap.failedStores || [],
+        stores: snap.stores
+      };
+      ACCT_CLOUD.data = data;
+      ACCT_CLOUD.at = Date.now();
+      return data;
+    })
+    .catch(() => null)
+    .finally(() => { ACCT_CLOUD.loading = null; });
+  return ACCT_CLOUD.loading;
+}
+
 function fmtUsd(n) { return n == null ? '—' : '$' + Number(n).toFixed(2); }
+
+function acctTime(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v).replace('T', ' ').slice(0, 19);
+  return d.toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
+}
 
 function acctShort(name) { return name.replace('海外官方旗舰店', '').replace('海外专卖店', ''); }
 
@@ -1252,7 +1291,14 @@ function acctGoodsNum(store, key, field) {
 }
 
 function renderAcctOverview() {
-  const D = acctData();
+  const container = document.getElementById('acctApp');
+  container.innerHTML = '<div class="empty-state"><div class="icon">☁️</div><p>正在读取云端账户快照…</p><p style="font-size:12px;color:var(--text-secondary)">采集机跑成功一轮后，这里会自动更新。</p></div>';
+  loadAcctCloud()
+    .then((cloud) => renderAcctOverviewWith(cloud || acctData(), !!cloud))
+    .catch(() => renderAcctOverviewWith(acctData(), false));
+}
+
+function renderAcctOverviewWith(D, fromCloud) {
   const container = document.getElementById('acctApp');
   const stores = Object.keys(D.stores);
   if (stores.length === 0) {
@@ -1273,7 +1319,11 @@ function renderAcctOverview() {
   }
   container.innerHTML = `
     <div style="margin-bottom:16px">
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">更新于 ${D.updatedAt || '-'} · 共 ${stores.length} 家店铺</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">
+        更新于 ${acctTime(D.updatedAt)} · 共 ${stores.length} 家店铺
+        <span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;${fromCloud ? 'background:#e7f8f2;color:#158262' : 'background:#fff2df;color:#bf6d20'}">${fromCloud ? '云端实时' : '本地兜底'}</span>
+        ${(D.failedStores && D.failedStores.length) ? `<span style="margin-left:6px;color:var(--danger)">上轮失败 ${D.failedStores.length} 家</span>` : ''}
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
         <div class="stat-card"><div class="num" style="color:var(--primary)">${fmtUsd(usdTotal)}</div><div class="label">可提现(USD)合计</div></div>
         <div class="stat-card"><div class="num" style="color:var(--primary)">${rmbTotal ? formatMoney(rmbTotal) : '—'}</div><div class="label">可提现(RMB)合计</div></div>
@@ -1313,7 +1363,7 @@ function renderAcctOverview() {
 }
 
 function renderAcctStoreDetail(name) {
-  const D = acctData();
+  const D = ACCT_CLOUD.data || acctData();
   const s = D.stores[name];
   if (!s) return;
   const container = document.getElementById('acctApp');
@@ -1333,7 +1383,7 @@ function renderAcctStoreDetail(name) {
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           <h3 style="margin:0;font-size:18px">${esc(name)}</h3>
-          <div style="font-size:12px;color:var(--text-secondary)">更新于 ${D.updatedAt || '-'}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">更新于 ${acctTime(D.updatedAt)}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:22px;font-weight:700;color:var(--primary)">${usd ? fmtUsd(usd.withdrawable) : (rmb ? formatMoney(rmb.withdrawable) : '—')}</div>
@@ -1351,9 +1401,9 @@ function renderAcctStoreDetail(name) {
             ${moneyRow('冻结款', usd.frozen, '$')}
           </table>
           <div style="font-size:12px;color:var(--text-secondary);margin-top:10px;border-top:1px dashed var(--border);padding-top:8px">
-            <div>账户名称：${esc(usd.accountName || '—')}</div>
-            <div>银行账户：${esc(usd.bankAccount || '—')}</div>
-            <div>开户行：${esc(usd.bankName || '—')}</div>
+            ${usd.bankAccount || usd.accountName
+              ? `<div>账户名称：${esc(usd.accountName || '—')}</div><div>银行账户：${esc(usd.bankAccount || '—')}</div><div>开户行：${esc(usd.bankName || '—')}</div>`
+              : '<div>🔒 银行账户信息已脱敏，仅在账户中心采集台可见</div>'}
           </div>
         </div>` : ''}
       ${rmb ? `
