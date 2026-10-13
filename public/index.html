@@ -9,18 +9,30 @@
 <body>
 
   <div class="header">
-    <h1>📊 安必拓运营管理</h1>
-    <p>提现与库存管理</p>
+    <div class="header-inner">
+      <div>
+        <div class="header-eyebrow">ANBITO · OPERATIONS</div>
+        <h1>安必拓运营管理</h1>
+        <p>经营 · 库存 · 账户，三块看板一站看清</p>
+      </div>
+      <div class="header-badge">数据本地缓存 · 采集自动更新</div>
+    </div>
   </div>
 
   <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('withdraw')">💳 提现管理</button>
-    <button class="tab-btn" onclick="switchTab('inventory')">📦 库存管理</button>
-    <button class="tab-btn" onclick="switchTab('orders')">🛒 订单售后</button>
-    <button class="tab-btn" onclick="switchTab('account')">💰 账户中心</button>
+    <button class="tab-btn active" data-board="business" onclick="switchBoard('business','withdraw')">💼 经营板块</button>
+    <button class="tab-btn" data-board="inventory" onclick="switchBoard('inventory')">📦 库存板块</button>
+    <button class="tab-btn" data-board="account" onclick="switchBoard('account')">💰 账户板块</button>
   </div>
 
   <div class="container-wide" id="app">
+
+    <!-- ========= 经营板块 ========= -->
+    <div id="boardBusiness" class="board">
+      <div class="sub-nav">
+        <button class="sub-btn active" id="subBtnWithdraw" onclick="switchBoard('business','withdraw')">💳 提现管理</button>
+        <button class="sub-btn" id="subBtnOrders" onclick="switchBoard('business','orders')">🛒 订单售后</button>
+      </div>
 
     <!-- ========= 提现管理 ========= -->
     <div id="tabWithdraw" class="tab-content">
@@ -64,7 +76,16 @@
         <div id="ksWithdrawApp"></div>
       </div>
     </div>
-    <div id="tabInventory" class="tab-content hidden">
+
+    <!-- 订单售后（经营板块子页） -->
+    <div id="tabOrders" class="tab-content hidden">
+      <div id="ddOrderApp"></div>
+    </div>
+    </div><!-- /boardBusiness -->
+
+    <!-- ========= 库存板块 ========= -->
+    <div id="boardInventory" class="board hidden">
+    <div id="tabInventory" class="tab-content">
       <!-- 操作栏 -->
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-sm btn-primary" onclick="openInvModal()" style="width:auto">➕ 新增商品</button>
@@ -101,20 +122,17 @@
 
       <!-- 供应链货品库存（抖店抓取） -->
       <div id="supplyInvApp"></div>
-    </div>
+    </div><!-- /tabInventory -->
+    </div><!-- /boardInventory -->
 
-    <!-- ========= 订单售后 ========= -->
-    <div id="tabOrders" class="tab-content hidden">
-      <div id="ddOrderApp"></div>
-    </div>
-
-    <!-- ========= 账户中心 ========= -->
-    <div id="tabAccount" class="tab-content hidden">
-      <div style="padding:12px 0"><a href="acct-console/" target="_blank" rel="noopener">打开账户中心采集管理台（实时数据与定时计划）</a></div>
+    <!-- ========= 账户板块 ========= -->
+    <div id="boardAccount" class="board hidden">
+    <div id="tabAccount" class="tab-content">
+      <div class="board-hint"><a href="acct-console/" target="_blank" rel="noopener">打开账户中心采集管理台（实时数据与定时计划）</a> · 采集机连接与快照都在这里</div>
       <div id="acctApp"></div>
     </div>
+    </div><!-- /boardAccount -->
 
-    </div>
   </div>
 
   <!-- ===== 提现弹窗 ===== -->

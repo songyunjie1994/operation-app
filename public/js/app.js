@@ -33,29 +33,44 @@ function esc(s) { return String(s).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt
 
 function formatMoney(n) { return '¥'+Number(n||0).toFixed(2); }
 
-// ===== 标签切换 =====
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-  const btns = document.querySelectorAll('.tab-btn');
-  if (tab === 'withdraw') {
-    btns[0].classList.add('active');
-    document.getElementById('tabWithdraw').classList.remove('hidden');
-    renderWithdraw();
-  } else if (tab === 'inventory') {
-    btns[1].classList.add('active');
+// ===== 板块切换（经营 / 库存 / 账户） =====
+function switchBoard(board, sub) {
+  const boards = {
+    business: document.getElementById('boardBusiness'),
+    inventory: document.getElementById('boardInventory'),
+    account: document.getElementById('boardAccount')
+  };
+  Object.entries(boards).forEach(([key, node]) => {
+    if (node) node.classList.toggle('hidden', key !== board);
+  });
+  document.querySelectorAll('.tab-btn[data-board]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.board === board);
+  });
+
+  if (board === 'business') {
+    const active = sub === 'orders' ? 'orders' : 'withdraw';
+    document.getElementById('tabWithdraw').classList.toggle('hidden', active !== 'withdraw');
+    document.getElementById('tabOrders').classList.toggle('hidden', active !== 'orders');
+    document.getElementById('subBtnWithdraw')?.classList.toggle('active', active === 'withdraw');
+    document.getElementById('subBtnOrders')?.classList.toggle('active', active === 'orders');
+    if (active === 'orders') renderDdOverview();
+    else renderWithdraw();
+  } else if (board === 'inventory') {
     document.getElementById('tabInventory').classList.remove('hidden');
     renderInventory();
     renderSupplyInventory();
-  } else if (tab === 'orders') {
-    btns[2].classList.add('active');
-    document.getElementById('tabOrders').classList.remove('hidden');
-    renderDdOverview();
-  } else if (tab === 'account') {
-    btns[3].classList.add('active');
+  } else if (board === 'account') {
     document.getElementById('tabAccount').classList.remove('hidden');
     renderAcctOverview();
   }
+}
+
+// 兼容旧调用名：withdraw/orders 归入经营板块
+function switchTab(tab) {
+  if (tab === 'orders') switchBoard('business', 'orders');
+  else if (tab === 'inventory') switchBoard('inventory');
+  else if (tab === 'account') switchBoard('account');
+  else switchBoard('business', 'withdraw');
 }
 
 // ====================================================================
