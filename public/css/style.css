@@ -5,6 +5,7 @@
 }
 
 :root {
+  --bg-card: #ffffff;
   --primary: #6d4de0;
   --primary-light: #8b6df0;
   --success: #22c55e;

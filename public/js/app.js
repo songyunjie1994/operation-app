@@ -453,6 +453,10 @@ function renderWithdraw() {
   const list = document.getElementById('withdrawList');
   if (rows.length === 0) {
     list.innerHTML = '<div class="empty-state"><div class="icon">💳</div><p>暂无提现记录</p></div>';
+    document.getElementById('wdPageInfo').textContent = '第 1 / 1 页（共 0 条）';
+    document.getElementById('wdPrevPage').disabled = true;
+    document.getElementById('wdNextPage').disabled = true;
+    renderKsWithdrawSummary();
     return;
   }
 
@@ -1257,10 +1261,12 @@ async function loadAcctCloud(force) {
   })
     .then((r) => r.json())
     .then((body) => {
+      if (!body.ok) throw new Error('云端数据暂时不可用');
       const snap = (body.snapshots || [])[0];
       if (!snap || !snap.stores || Object.keys(snap.stores).length === 0) return null;
       const data = {
-        updatedAt: snap.updatedAt,
+        updatedAt: snap.capturedAt || snap.updatedAt,
+        uploadedAt: snap.updatedAt,
         storeCount: Object.keys(snap.stores).length,
         failedStores: snap.failedStores || [],
         stores: snap.stores
