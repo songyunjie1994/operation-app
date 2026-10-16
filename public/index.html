@@ -21,7 +21,7 @@
   </div>
 
   <div class="nav-tabs">
-    <button class="tab-btn active" data-board="business" onclick="switchBoard('business','withdraw')">💼 经营板块</button>
+    <button class="tab-btn active" data-board="business" onclick="switchBoard('business','trade')">💼 经营板块</button>
     <button class="tab-btn" data-board="inventory" onclick="switchBoard('inventory')">📦 库存板块</button>
     <button class="tab-btn" data-board="account" onclick="switchBoard('account')">💰 账户板块</button>
   </div>
@@ -31,10 +31,12 @@
     <!-- ========= 经营板块 ========= -->
     <div id="boardBusiness" class="board">
       <div class="sub-nav">
+        <button class="sub-btn" id="subBtnTrade" onclick="switchBoard('business','trade')">📊 经营数据</button>
         <button class="sub-btn active" id="subBtnWithdraw" onclick="switchBoard('business','withdraw')">💳 提现管理</button>
         <button class="sub-btn" id="subBtnOrders" onclick="switchBoard('business','orders')">🛒 订单售后</button>
       </div>
 
+    <div id="tabTrade" class="tab-content hidden"><div id="businessTradeApp"></div></div>
     <!-- ========= 提现管理 ========= -->
     <div id="tabWithdraw" class="tab-content">
       <!-- 操作栏 -->
@@ -296,5 +298,6 @@
   <script src="js/dd_account_data.js"></script>
   <script src="js/app.js?v=20261016"></script>
   <script src="js/card-layout.js?v=20261016"></script>
+  <script src="js/business-trade.js?v=20261016-1"></script>
 </body>
 </html>

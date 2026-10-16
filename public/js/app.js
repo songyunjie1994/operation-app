@@ -48,13 +48,16 @@ function switchBoard(board, sub) {
   });
 
   if (board === 'business') {
-    const active = sub === 'orders' ? 'orders' : 'withdraw';
+    const active = sub === 'orders' ? 'orders' : sub === 'withdraw' ? 'withdraw' : 'trade';
+    document.getElementById('tabTrade')?.classList.toggle('hidden', active !== 'trade');
     document.getElementById('tabWithdraw').classList.toggle('hidden', active !== 'withdraw');
     document.getElementById('tabOrders').classList.toggle('hidden', active !== 'orders');
     document.getElementById('subBtnWithdraw')?.classList.toggle('active', active === 'withdraw');
     document.getElementById('subBtnOrders')?.classList.toggle('active', active === 'orders');
+    document.getElementById('subBtnTrade')?.classList.toggle('active', active === 'trade');
     if (active === 'orders') renderDdOverview();
-    else renderWithdraw();
+    else if (active === 'withdraw') renderWithdraw();
+    else window.renderBusinessTrade?.();
   } else if (board === 'inventory') {
     document.getElementById('tabInventory').classList.remove('hidden');
     renderInventory();
