@@ -3,7 +3,7 @@ create table if not exists public.acct_business_ranges (
   shop_name text not null,
   start_date date not null,
   end_date date not null,
-  gross_cents bigint not null check(gross_cents >= 0),
+  gross_cents bigint check(gross_cents >= 0),
   refund_payment_cents bigint check(refund_payment_cents >= 0),
   captured_at timestamptz not null,
   source_hash text not null,
@@ -12,5 +12,6 @@ create table if not exists public.acct_business_ranges (
   check(end_date >= start_date and end_date - start_date < 31)
 );
 alter table public.acct_business_ranges enable row level security;
+alter table public.acct_business_ranges alter column gross_cents drop not null;
 revoke all on public.acct_business_ranges from anon, authenticated;
 grant all on public.acct_business_ranges to service_role;

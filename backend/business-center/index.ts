@@ -17,7 +17,7 @@ Deno.serve(async(req:Request)=>{
    const {data:snaps,error:se}=await db.from('acct_snapshots').select('device_id,data').order('updated_at',{ascending:false}).limit(5);if(se)throw se;
    const shops=[...new Set((snaps||[]).flatMap((s:any)=>Object.keys(s.data?.stores||{})))].sort();
    const {data,error}=await db.from('acct_business_ranges').select('shop_name,start_date,end_date,gross_cents,refund_payment_cents,captured_at,updated_at').in('device_id',(snaps||[]).map((s:any)=>s.device_id)).order('captured_at',{ascending:false}).limit(5000);if(error)throw error;
-   const seen=new Set<string>();const records=(data||[]).filter((r:any)=>{const key=[r.shop_name,r.start_date,r.end_date].join('|');if(seen.has(key))return false;seen.add(key);return shops.includes(r.shop_name)}).map((r:any)=>({shopName:r.shop_name,startDate:r.start_date,endDate:r.end_date,grossCents:r.gross_cents,refundPaymentCents:r.refund_payment_cents,netCents:r.refund_payment_cents===null?null:r.gross_cents-r.refund_payment_cents,capturedAt:r.captured_at,uploadedAt:r.updated_at}));
+   const seen=new Set<string>();const records=(data||[]).filter((r:any)=>{const key=[r.shop_name,r.start_date,r.end_date].join('|');if(seen.has(key))return false;seen.add(key);return shops.includes(r.shop_name)}).map((r:any)=>({shopName:r.shop_name,startDate:r.start_date,endDate:r.end_date,grossCents:r.gross_cents,refundPaymentCents:r.refund_payment_cents,netCents:r.refund_payment_cents===null||r.gross_cents===null?null:r.gross_cents-r.refund_payment_cents,capturedAt:r.captured_at,uploadedAt:r.updated_at}));
    return reply({ok:true,shops,records});
   }
   if(body.action!=='device_business_publish')return reply({error:'unknown_action'},400);
@@ -31,7 +31,7 @@ Deno.serve(async(req:Request)=>{
    const a=Date.parse(r.startDate+'T00:00:00Z'),b=Date.parse(r.endDate+'T00:00:00Z'),stamp=Date.parse(r.capturedAt);
    const money=(n:unknown)=>Number.isSafeInteger(n)&&Number(n)>=0&&Number(n)<=1000000000000;
    const key=[r.shopName,r.startDate,r.endDate].join('|');
-   if(keys.has(key)||!names.has(r.shopName)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.endDate)||!Number.isFinite(a)||!Number.isFinite(b)||b<a||b-a>=31*86400000||!money(r.grossCents)||(r.refundPaymentCents!==null&&!money(r.refundPaymentCents))||!Number.isFinite(stamp)||stamp>Date.now()+300000||!/^[a-f0-9]{64}$/.test(r.sourceHash))return reply({error:'invalid_record'},400);
+   if(keys.has(key)||!names.has(r.shopName)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.endDate)||!Number.isFinite(a)||!Number.isFinite(b)||b<a||b-a>=31*86400000||(r.grossCents!==null&&!money(r.grossCents))||(r.refundPaymentCents!==null&&!money(r.refundPaymentCents))||!Number.isFinite(stamp)||stamp>Date.now()+300000||!/^[a-f0-9]{64}$/.test(r.sourceHash))return reply({error:'invalid_record'},400);
    keys.add(key);rows.push({device_id:device.id,shop_name:r.shopName,start_date:r.startDate,end_date:r.endDate,gross_cents:r.grossCents,refund_payment_cents:r.refundPaymentCents,captured_at:r.capturedAt,source_hash:r.sourceHash,updated_at:new Date().toISOString()});
   }
   const {error}=await db.from('acct_business_ranges').upsert(rows,{onConflict:'device_id,shop_name,start_date,end_date'});if(error)throw error;
