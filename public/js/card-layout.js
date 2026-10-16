@@ -1,7 +1,13 @@
 /* 三板块卡片视图：复用经营数据与操作，账户和供应链库存读取同一云端快照。 */
 (() => {
   'use strict';
-  const ui = { accountQuery:'', accountStatus:'', stockQuery:'', stockShop:'', stockStatus:'', stockPage:1 };
+  const monthKey = value => {
+    if(!value)return '';
+    if(typeof value==='string'&&/^\d{4}-\d{2}-\d{2} /.test(value))return value.slice(0,7);
+    const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'}).slice(0,7);
+  };
+  const currentMonth=monthKey(new Date());
+  const ui = { accountQuery:'', accountStatus:'', accountMonth:currentMonth, stockQuery:'', stockShop:'', stockStatus:'', stockPage:1 };
   const node = (tag, cls, text) => {
     const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=String(text);return e;
   };
@@ -45,22 +51,33 @@
     root.replaceChildren(sourceHeader('店铺账户',data,cloud,()=>loadAccounts(true)));
     const names=Object.keys(data.stores||{}).sort(), stores=names.map(name=>data.stores[name]);
     if(!names.length){root.append(empty('暂无账户数据','采集并同步后即可查看。'));return}
-    const abnormal=stores.filter(s=>s.collection?.status!=='success').length;
-    root.append(stats([
-      ['可提现 · USD',money(sum(stores,s=>s.goods?.usd?.withdrawable),'$'),'美元账户已读取金额合计'],
-      ['可提现 · RMB',money(sum(stores,s=>s.goods?.rmb?.withdrawable)),'人民币账户已读取金额合计'],
-      ['待结算 · RMB',money(sum(stores,s=>s.pending?.toSettle)),'缺失字段不按零补齐'],
-      ['店铺覆盖',names.length+' 家',abnormal?abnormal+' 家需核验':'全部店铺采集完整']
-    ]));
-    const tools=node('div','board-toolbar'),search=node('input','board-search'),select=node('select','board-select'),count=node('span','result-count');
+    const tools=node('div','board-toolbar'),search=node('input','board-search'),select=node('select','board-select'),count=node('span','result-count'),month=node('select','board-select');
+    month.setAttribute('aria-label','账户采集月份');
+    const months=[...new Set([currentMonth,...stores.map(s=>monthKey(s.collection?.collectedAt||data.updatedAt)).filter(Boolean)])].sort().reverse();
+    for(const value of months){const option=node('option',null,(value===currentMonth?'本月':value.replace('-','年')+'月')+'（'+value+'）');option.value=value;month.append(option)}
+    const allMonths=node('option',null,'全部采集月份');allMonths.value='';month.append(allMonths);month.value=ui.accountMonth;
     search.type='search';search.placeholder='搜索店铺名称';search.setAttribute('aria-label','搜索账户店铺');search.value=ui.accountQuery;
     for(const [value,text] of [['','全部状态'],['success','采集完整'],['abnormal','需核验']]) {const opt=node('option',null,text);opt.value=value;select.append(opt)}
-    select.value=ui.accountStatus;select.setAttribute('aria-label','筛选账户状态');tools.append(search,select,count);root.append(tools);
-    const grid=node('div','account-card-grid');root.append(grid);
+    select.value=ui.accountStatus;select.setAttribute('aria-label','筛选账户状态');tools.append(month,search,select,count);root.append(tools);
+    const overview=node('section','summary-section'),summary=node('section','summary-section'),details=node('section','summary-section');details.id='accountShopDetails';
+    const grid=node('div','account-card-grid');details.append(node('h3','summary-title','各店铺账户明细'),grid);root.append(overview,summary,details);
     const draw=()=>{
       grid.replaceChildren();
-      const filtered=names.filter(name=>name.toLowerCase().includes(ui.accountQuery.toLowerCase())).filter(name=>!ui.accountStatus||(ui.accountStatus==='success'?data.stores[name].collection?.status==='success':data.stores[name].collection?.status!=='success'));
+      const filtered=names.filter(name=>!ui.accountMonth||monthKey(data.stores[name].collection?.collectedAt||data.updatedAt)===ui.accountMonth).filter(name=>name.toLowerCase().includes(ui.accountQuery.toLowerCase())).filter(name=>!ui.accountStatus||(ui.accountStatus==='success'?data.stores[name].collection?.status==='success':data.stores[name].collection?.status!=='success'));
       count.textContent=filtered.length+' / '+names.length+' 家';
+      const selectedStores=filtered.map(name=>data.stores[name]);
+      overview.replaceChildren(node('h3','summary-title','账户汇总'),stats([
+        ['可提现 · USD',money(sum(selectedStores,s=>s.goods?.usd?.withdrawable),'$')],
+        ['提现中 · USD',money(sum(selectedStores,s=>s.goods?.usd?.withdrawing),'$')],
+        ['冻结款 · USD',money(sum(selectedStores,s=>s.goods?.usd?.frozen),'$')],
+        ['可提现 · RMB',money(sum(selectedStores,s=>s.goods?.rmb?.withdrawable))],
+        ['待结算 · RMB',money(sum(selectedStores,s=>s.pending?.toSettle))],
+        ['基础保证金 · RMB',money(sum(selectedStores,s=>s.deposit?.baseBalance))]
+      ]),node('p','detail-note',`当前范围 ${filtered.length} 家。按采集月份筛选，每家店显示最新余额快照；不同日期的余额不累加，美元与人民币分开汇总。`));
+      const summaryHead=node('div','summary-section-head'),jump=node('a','summary-jump','向下查看账户明细 ↓');jump.href='#accountShopDetails';summaryHead.append(node('h3','summary-title','各店铺账户汇总'),jump);
+      const wrap=node('div','shop-summary-wrap'),table=node('table','shop-summary-table');table.setAttribute('aria-label','账户各店铺汇总');
+      const thead=node('thead'),tr=node('tr');for(const text of ['店铺','可提现 USD','可提现 RMB','待结算 RMB','基础保证金 RMB','采集状态'])tr.append(node('th',null,text));thead.append(tr);table.append(thead);
+      const tbody=node('tbody');for(const name of filtered){const s=data.stores[name],row=node('tr');for(const value of [name,money(s.goods?.usd?.withdrawable,'$'),money(s.goods?.rmb?.withdrawable),money(s.pending?.toSettle),money(s.deposit?.baseBalance),stateLabel(s.collection?.status)])row.append(node('td',null,value));tbody.append(row)}table.append(tbody);wrap.append(table);summary.replaceChildren(summaryHead,wrap);
       for(const name of filtered) {
         const s=data.stores[name],card=node('article','shop-account-card'),head=node('div','card-top');
         head.append(node('h3',null,name),badge(stateLabel(s.collection?.status),s.collection?.status==='success'?'good':'warning'));card.append(head);
@@ -75,7 +92,7 @@
       }
       if(!filtered.length)grid.append(empty('没有匹配的店铺','可以修改搜索关键词或筛选条件。'));
     };
-    search.oninput=()=>{ui.accountQuery=search.value;draw()};select.onchange=()=>{ui.accountStatus=select.value;draw()};draw();
+    search.oninput=()=>{ui.accountQuery=search.value;draw()};select.onchange=()=>{ui.accountStatus=select.value;draw()};month.onchange=()=>{ui.accountMonth=month.value;draw()};draw();
   }
   async function loadAccounts(force=false) {
     const root=document.getElementById('acctApp');
