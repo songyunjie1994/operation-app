@@ -15,7 +15,7 @@
   const complete=rows.every(r=>r&&valid(r.grossCents)&&valid(r.refundPaymentCents));
   const sum=key=>rows.every(r=>r&&valid(r[key]))?rows.reduce((n,r)=>n+r[key],0):null;
   const gross=sum('grossCents'),refund=sum('refundPaymentCents');
-  return {shop,complete,gross,refund,net:gross!==null&&refund!==null?gross-refund:null,rows,stamp:rows.filter(Boolean).map(r=>r.capturedAt).sort().at(-1)};
+  return {shop,complete,received:rows.every(Boolean),gross,refund,net:gross!==null&&refund!==null?gross-refund:null,rows,stamp:rows.filter(Boolean).map(r=>r.capturedAt).sort().at(-1)};
  }
  function metrics(values,cls='board-metrics'){
   const grid=el('div',cls);
@@ -35,18 +35,19 @@
   const content=el('div');root.append(content);
   const render=()=>{
    content.replaceChildren();const all=data.shops.map(report),filtered=all.filter(r=>r.shop.toLowerCase().includes(query.toLowerCase())),complete=filtered.filter(r=>r.complete);
-   const coverage=el('p','data-caption',`当前筛选 ${filtered.length} 家 · 三项已齐 ${complete.length} 家 · 待补充 ${filtered.length-complete.length} 家`);
+   const received=filtered.filter(r=>r.received).length;
+   const coverage=el('p','data-caption',`当前筛选 ${filtered.length} 家 · 已采集 ${received} 家${received<filtered.length?` · 尚未全部采集 ${filtered.length-received} 家`:''}`);
    const totals=key=>complete.length?complete.reduce((n,r)=>n+r[key],0):null;
-   content.append(coverage,metrics([['成交金额 · 已齐店铺合计',totals('gross')],['成交退款金额（支付时间） · 已齐店铺合计',totals('refund')],['净成交金额 · 已齐店铺合计',totals('net')]],'board-metrics trade-metrics'));
-   content.append(el('p','detail-note','以上合计仅含当前筛选中三项数据完整的店铺。未读取的金额显示为 —。10月16日离线数据暂不可选，当前统计截止10月15日。'));
+   content.append(coverage,metrics([['成交金额 · 可计算店铺合计',totals('gross')],['成交退款金额（支付时间） · 可计算店铺合计',totals('refund')],['净成交金额 · 可计算店铺合计',totals('net')]],'board-metrics trade-metrics'));
+   content.append(el('p','detail-note','— 按罗盘来源原样显示，属于正常展示。以上合计仅含三项金额均可计算的店铺。当前统计截止10月15日。'));
    const grid=el('div','account-card-grid');content.append(grid);
    for(const r of filtered){
     const card=el('article','shop-account-card trade-shop-card'),top=el('div','card-top');
-    top.append(el('h3',null,r.shop),el('span','data-badge '+(r.complete?'good':'warning'),r.complete?'已采集':r.rows.some(Boolean)?'待补充':'待采集'));card.append(top,el('p','card-timestamp',periods[period][0]+' — '+periods[period][1]));
+    top.append(el('h3',null,r.shop),el('span','data-badge '+(r.received?'good':'warning'),r.received?'已采集':r.rows.some(Boolean)?'部分采集':'待采集'));card.append(top,el('p','card-timestamp',periods[period][0]+' — '+periods[period][1]));
     const fields=el('dl','trade-fields');
     for(const [label,value] of [['成交金额',r.gross],['成交退款金额（支付时间）',r.refund],['净成交金额',r.net]]){const row=el('div');row.append(el('dt',null,label),el('dd',null,money(value)));fields.append(row)}
     card.append(fields,el('p','card-timestamp','采集时间：'+time(r.stamp)));
-    if(!r.complete)card.append(el('p','detail-note',r.rows.some(x=>x&&x.refundPaymentCents===null)?'来源退款指标显示 —，净成交待核验。':'该期间数据尚未齐全。'));
+    if(!r.received)card.append(el('p','detail-note','该期间尚未全部采集。'));
     grid.append(card);
    }
    if(!filtered.length)grid.append(el('div','board-empty','没有匹配的店铺'));
