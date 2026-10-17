@@ -9,6 +9,8 @@
  const monthEnd=yesterday.toISOString().slice(0,10).startsWith(thisMonth)?yesterday.toISOString().slice(0,10):thisMonth+'-01';
  const periods=[[lastStart,monthEnd,'上月＋本月'],[lastStart,lastEnd,'上月'],[thisMonth+'-01',monthEnd,'本月']];
  let data=null,period=2,query='',platform='douyin';const loading={},cache={};
+ const platformLabel=()=>platform==='kuaishou'?'快手':'抖店';
+ const platformBadge=()=>el('span','trade-platform-badge '+platform,platformLabel());
  const refundLabel=()=>platform==='kuaishou'?'退款金额（支付日）':'成交退款金额（支付时间）';
  function updatePeriods(){
   periods[0][1]=periods[2][1]=monthEnd;
@@ -37,7 +39,7 @@
   const root=document.getElementById('businessTradeApp');if(!root)return;
   root.replaceChildren();
   const head=el('div','data-heading'),copy=el('div'),refresh=el('button','board-button','刷新数据');refresh.type='button';refresh.onclick=()=>load(true);
-  copy.append(el('p','section-kicker',platform==='kuaishou'?'快手 · 生意通':'抖店 · 电商罗盘'),el('h2',null,'店铺经营'),el('p','data-caption',platform==='kuaishou'?'成交金额与退款金额（支付日）':'净成交金额 = 成交金额 − 成交退款金额（支付时间）'));
+  copy.append(el('p','section-kicker',platform==='kuaishou'?'快手 · 生意通':'抖店 · 电商罗盘'),el('h2',null,platformLabel()+'店铺经营'),el('p','data-caption',platform==='kuaishou'?'成交金额与退款金额（支付日）':'净成交金额 = 成交金额 − 成交退款金额（支付时间）'));
   head.append(copy,refresh);root.append(head);
   const platformTools=el('div','board-toolbar'),platformSelect=el('select','board-select');platformSelect.setAttribute('aria-label','经营平台');
   for(const [value,label] of [['douyin','抖店'],['kuaishou','快手']]){const option=el('option',null,label);option.value=value;platformSelect.append(option)}platformSelect.value=platform;
@@ -54,7 +56,7 @@
    const coverage=el('p','data-caption',`当前筛选 ${filtered.length} 家 · 已采集 ${received} 家${received<filtered.length?` · 尚未全部采集 ${filtered.length-received} 家`:''}`);
    const totals=key=>complete.length?complete.reduce((n,r)=>n+r[key],0):null;
    const metricValues=[['成交金额 · 可计算店铺合计',totals('gross')],[refundLabel()+' · 可计算店铺合计',totals('refund')]];if(platform==='douyin')metricValues.push(['净成交金额 · 可计算店铺合计',totals('net')]);
-   const overview=el('section','summary-section');overview.append(el('h3','summary-title','经营汇总'),coverage,metrics(metricValues,'board-metrics trade-metrics'+(platform==='kuaishou'?' kuaishou-metrics':'')));
+   const overview=el('section','summary-section');overview.append(el('h3','summary-title',platformLabel()+'经营汇总'),coverage,metrics(metricValues,'board-metrics trade-metrics'+(platform==='kuaishou'?' kuaishou-metrics':'')));
    overview.append(el('p','detail-note',`统计区间：${periods[period][0]} — ${periods[period][1]}。— 按平台来源正常显示；合计仅含金额可计算的店铺。`));content.append(overview);
    const adjusted=filtered.flatMap(r=>r.rows.filter(Boolean)).filter(r=>r.requestedEndDate&&r.requestedEndDate!==r.endDate);
    if(adjusted.length)overview.append(el('p','detail-note','平台当前开放至 '+[...new Set(adjusted.map(r=>r.endDate))].join('、')+'，按实际可选日期统计。'));
@@ -63,12 +65,12 @@
    const wrap=el('div','shop-summary-wrap'),table=el('table','shop-summary-table');table.setAttribute('aria-label','经营各店铺汇总');
    const columns=['店铺','成交金额',refundLabel(),...(platform==='douyin'?['净成交金额']:[]),'状态'];
    const thead=el('thead'),tr=el('tr');for(const text of columns)tr.append(el('th',null,text));thead.append(tr);table.append(thead);
-   const tbody=el('tbody');for(const r of filtered){const row=el('tr');for(const value of [r.shop,money(r.gross),money(r.refund),...(platform==='douyin'?[money(r.net)]:[]),r.received?'已采集':r.rows.some(Boolean)?'部分采集':'待采集'])row.append(el('td',null,value));tbody.append(row)}table.append(tbody);wrap.append(table);storeSummary.append(wrap);content.append(storeSummary);
+   const tbody=el('tbody');for(const r of filtered){const row=el('tr'),shopCell=el('td'),shopTitle=el('div','trade-shop-title');shopTitle.append(platformBadge(),el('span',null,r.shop));shopCell.append(shopTitle);row.append(shopCell);for(const value of [money(r.gross),money(r.refund),...(platform==='douyin'?[money(r.net)]:[]),r.received?'已采集':r.rows.some(Boolean)?'部分采集':'待采集'])row.append(el('td',null,value));tbody.append(row)}table.append(tbody);wrap.append(table);storeSummary.append(wrap);content.append(storeSummary);
    const details=el('section','summary-section');details.id='tradeShopDetails';details.append(el('h3','summary-title','各店铺明细'));
    const grid=el('div','account-card-grid');details.append(grid);content.append(details);
    for(const r of filtered){
     const card=el('article','shop-account-card trade-shop-card'),top=el('div','card-top');
-    top.append(el('h3',null,r.shop),el('span','data-badge '+(r.received?'good':'warning'),r.received?'已采集':r.rows.some(Boolean)?'部分采集':'待采集'));card.append(top,el('p','card-timestamp',periods[period][0]+' — '+periods[period][1]));
+    const title=el('div','trade-shop-title');title.append(platformBadge(),el('h3',null,r.shop));top.append(title,el('span','data-badge '+(r.received?'good':'warning'),r.received?'已采集':r.rows.some(Boolean)?'部分采集':'待采集'));card.append(top,el('p','card-timestamp',periods[period][0]+' — '+periods[period][1]));
     const fields=el('dl','trade-fields');
     for(const [label,value] of [['成交金额',r.gross],[refundLabel(),r.refund],...(platform==='douyin'?[['净成交金额',r.net]]:[])]){const row=el('div');row.append(el('dt',null,label),el('dd',null,money(value)));fields.append(row)}
     card.append(fields,el('p','card-timestamp','采集时间：'+time(r.stamp)));

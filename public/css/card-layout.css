@@ -14,6 +14,11 @@
 .board-button:disabled { opacity:.4;cursor:not-allowed; }
 .board-button:focus-visible,.shop-account-card button:focus-visible,summary:focus-visible { outline:3px solid #b9a9f7;outline-offset:3px; }
 .board-metrics { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px; }
+.trade-shop-title { display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;min-width:0; }
+.trade-shop-title > span:last-child { overflow-wrap:anywhere;min-width:0; }
+.trade-platform-badge { display:inline-flex;flex-shrink:0;align-items:center;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;line-height:1.5;white-space:nowrap; }
+.trade-platform-badge.kuaishou { color:#b9470a;background:#fff0e3; }
+.trade-platform-badge.douyin { color:#315bb5;background:#edf2ff; }
 .trade-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .trade-metrics.kuaishou-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .trade-fields { margin:18px 0;display:grid;gap:14px; }
