@@ -15,6 +15,7 @@
 .board-button:focus-visible,.shop-account-card button:focus-visible,summary:focus-visible { outline:3px solid #b9a9f7;outline-offset:3px; }
 .board-metrics { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px; }
 .trade-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.trade-metrics.kuaishou-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .trade-fields { margin:18px 0;display:grid;gap:14px; }
 .trade-fields>div { display:flex;justify-content:space-between;gap:12px;align-items:baseline; }
 .trade-fields dt { color:var(--text-secondary);font-size:12px;min-width:0; }

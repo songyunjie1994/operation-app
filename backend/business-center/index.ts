@@ -13,28 +13,34 @@ Deno.serve(async(req:Request)=>{
  try{
   const raw=await req.text();if(raw.length>100000)return reply({error:'payload_too_large'},413);
   const body=JSON.parse(raw);
+  const platform=body.platform||'douyin';if(!['douyin','kuaishou'].includes(platform))return reply({error:'invalid_platform'},400);
+  const table=platform==='kuaishou'?'acct_kuaishou_business_ranges':'acct_business_ranges';
+  const ksNames=['TESSMEL海外官方旗舰店','VITAFOLKS海外官方旗舰店','MaxHealthy海外官方旗舰店','BioEllis海外官方旗舰店'];
   if(body.action==='public_business'){
    const {data:snaps,error:se}=await db.from('acct_snapshots').select('device_id,data').order('updated_at',{ascending:false}).limit(5);if(se)throw se;
-   const shops=[...new Set((snaps||[]).flatMap((s:any)=>Object.keys(s.data?.stores||{})))].sort();
-   const {data,error}=await db.from('acct_business_ranges').select('shop_name,start_date,end_date,gross_cents,refund_payment_cents,captured_at,updated_at').in('device_id',(snaps||[]).map((s:any)=>s.device_id)).order('captured_at',{ascending:false}).limit(5000);if(error)throw error;
+   const ddShops=[...new Set((snaps||[]).flatMap((s:any)=>Object.keys(s.data?.stores||{})))].sort();
+   const {data,error}=await db.from(table).select('shop_name,start_date,end_date,gross_cents,refund_payment_cents,captured_at,updated_at'+(platform==='kuaishou'?',requested_end_date':'')).in('device_id',(snaps||[]).map((s:any)=>s.device_id)).order('captured_at',{ascending:false}).limit(5000);if(error)throw error;
+   const shops=platform==='kuaishou'?[...new Set((data||[]).map((r:any)=>r.shop_name))].filter(n=>ksNames.includes(n)).sort():ddShops;
    const seen=new Set<string>();const records=(data||[]).filter((r:any)=>{const key=[r.shop_name,r.start_date,r.end_date].join('|');if(seen.has(key))return false;seen.add(key);return shops.includes(r.shop_name)}).map((r:any)=>({shopName:r.shop_name,startDate:r.start_date,endDate:r.end_date,grossCents:r.gross_cents,refundPaymentCents:r.refund_payment_cents,netCents:r.refund_payment_cents===null||r.gross_cents===null?null:r.gross_cents-r.refund_payment_cents,capturedAt:r.captured_at,uploadedAt:r.updated_at}));
-   return reply({ok:true,shops,records});
+   return reply({ok:true,platform,shops,records:records.map((r:any)=>({...r,platform,refundMetric:platform==='kuaishou'?'退款金额（支付日）':'成交退款金额（支付时间）',...(platform==='kuaishou'?{requestedEndDate:(data||[]).find((v:any)=>v.shop_name===r.shopName&&v.start_date===r.startDate&&v.end_date===r.endDate)?.requested_end_date||null}:{})}))});
   }
   if(body.action!=='device_business_publish')return reply({error:'unknown_action'},400);
   const token=req.headers.get('x-acct-token')||'';if(token.length<32)return reply({error:'unauthorized'},401);
   const {data:device,error:de}=await db.from('acct_devices').select('id').eq('id',String(body.deviceId||'')).eq('token_hash',await hash(token)).maybeSingle();if(de||!device)return reply({error:'unauthorized'},401);
   const {data:snapshot,error:se}=await db.from('acct_snapshots').select('data').eq('device_id',device.id).single();if(se)throw se;
-  const names=new Set(Object.keys(snapshot.data?.stores||{}));
+  const names=new Set(platform==='kuaishou'?ksNames:Object.keys(snapshot.data?.stores||{}));
   if(!Array.isArray(body.records)||body.records.length<1||body.records.length>100)return reply({error:'invalid_records'},400);
   const rows=[];const keys=new Set();
   for(const r of body.records){
    const a=Date.parse(r.startDate+'T00:00:00Z'),b=Date.parse(r.endDate+'T00:00:00Z'),stamp=Date.parse(r.capturedAt);
    const money=(n:unknown)=>Number.isSafeInteger(n)&&Number(n)>=0&&Number(n)<=1000000000000;
    const key=[r.shopName,r.startDate,r.endDate].join('|');
+   if(platform==='kuaishou'&&r.platform!=='kuaishou')return reply({error:'platform_mismatch'},400);
+   if(platform==='kuaishou'&&r.requestedEndDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(r.requestedEndDate)||!Number.isFinite(Date.parse(r.requestedEndDate+'T00:00:00Z'))||r.requestedEndDate<r.endDate))return reply({error:'invalid_requested_date'},400);
    if(keys.has(key)||!names.has(r.shopName)||!/^\d{4}-\d{2}-\d{2}$/.test(r.startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(r.endDate)||!Number.isFinite(a)||!Number.isFinite(b)||b<a||b-a>=31*86400000||(r.grossCents!==null&&!money(r.grossCents))||(r.refundPaymentCents!==null&&!money(r.refundPaymentCents))||!Number.isFinite(stamp)||stamp>Date.now()+300000||!/^[a-f0-9]{64}$/.test(r.sourceHash))return reply({error:'invalid_record'},400);
-   keys.add(key);rows.push({device_id:device.id,shop_name:r.shopName,start_date:r.startDate,end_date:r.endDate,gross_cents:r.grossCents,refund_payment_cents:r.refundPaymentCents,captured_at:r.capturedAt,source_hash:r.sourceHash,updated_at:new Date().toISOString()});
+   keys.add(key);rows.push({device_id:device.id,shop_name:r.shopName,start_date:r.startDate,end_date:r.endDate,gross_cents:r.grossCents,refund_payment_cents:r.refundPaymentCents,captured_at:r.capturedAt,source_hash:r.sourceHash,updated_at:new Date().toISOString(),...(platform==='kuaishou'?{requested_end_date:r.requestedEndDate||null}:{})});
   }
-  const {error}=await db.from('acct_business_ranges').upsert(rows,{onConflict:'device_id,shop_name,start_date,end_date'});if(error)throw error;
+  const {error}=await db.from(table).upsert(rows,{onConflict:'device_id,shop_name,start_date,end_date'});if(error)throw error;
   return reply({ok:true,count:rows.length});
  }catch(e){console.error(e);return reply({error:'request_failed'},500)}
 });
