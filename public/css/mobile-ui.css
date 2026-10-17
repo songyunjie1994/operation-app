@@ -1,0 +1,80 @@
+/* 经营与账户：可见的平台入口、紧凑的筛选和手机店铺列表。 */
+.trade-platform-tabs { display:flex;gap:8px;padding:5px;max-width:480px;margin-bottom:16px;background:#e8edf5;border:1px solid #e0e6f0;border-radius:14px; }
+.trade-platform-tab { flex:1;display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;padding:10px 16px;background:transparent;border:1px solid transparent;border-radius:10px;color:#59677d;font:inherit;cursor:pointer; }
+.trade-platform-tab strong { font-size:15px; }
+.platform-source { font-size:12px; }
+.platform-dot { width:8px;height:8px;background:#b3bdcd;border-radius:50%;flex-shrink:0; }
+.trade-platform-tab[aria-pressed="true"] { background:#fff;border-color:#dbe3f1;box-shadow:0 2px 6px #1e293b0a;color:#284575; }
+.trade-platform-tab.douyin[aria-pressed="true"] .platform-dot { background:#5676e6; }
+.trade-platform-tab.kuaishou[aria-pressed="true"] { color:#a74613;border-color:#f0d9c9; }
+.trade-platform-tab.kuaishou[aria-pressed="true"] .platform-dot { background:#f47b35; }
+.trade-platform-tab:focus-visible { outline:3px solid #b9a9f7;outline-offset:2px; }
+#businessTradeApp .trade-filters { padding:0;background:transparent;border:0;gap:10px; }
+#businessTradeApp .trade-filters .board-select { min-width:250px;background:#fff; }
+#businessTradeApp .trade-filters .board-search { background:#fff; }
+#businessTradeApp .trade-metrics { margin-top:14px; }
+#businessTradeApp .trade-metrics .metric-card:first-child { background:#f3f5ff;border-color:#dce3fa; }
+#businessTradeApp[data-platform="kuaishou"] .trade-metrics .metric-card:first-child { background:#fff6ef;border-color:#f5dfce; }
+#businessTradeApp .data-heading > .board-button { flex-shrink:0; }
+.summary-jump { display:inline-flex;align-items:center;min-height:38px; }
+@media(max-width:760px) {
+ .header { padding:16px 16px 18px; }
+ .header-eyebrow { margin-bottom:5px; }
+ .header h1 { font-size:21px; }
+ .header p { font-size:11px;margin-top:4px; }
+ .header-badge { display:none; }
+ .container-wide { padding:15px 14px 26px; }
+ .sub-nav { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:20px; }
+ .sub-btn { min-height:44px;padding:8px 5px;font-size:12px;white-space:nowrap; }
+ #businessTradeApp .data-heading { flex-direction:row;align-items:flex-start;gap:12px;margin-bottom:16px; }
+ #businessTradeApp .data-heading > div { min-width:0; }
+ #businessTradeApp .data-heading h2 { font-size:23px; }
+ #businessTradeApp .data-heading .data-caption { font-size:11px; }
+ #businessTradeApp .data-heading > .board-button { padding:8px 10px;font-size:12px;margin-top:18px; }
+ .trade-platform-tabs { max-width:none;margin-bottom:12px;gap:5px; }
+ .trade-platform-tab { min-height:48px;padding:10px 8px;gap:6px; }
+ .platform-source { font-size:11px; }
+ #businessTradeApp .trade-filters { grid-template-columns:minmax(0,1fr);gap:9px;margin-bottom:22px; }
+ #businessTradeApp .trade-filters .board-select { min-width:0;font-size:16px;min-height:46px; }
+ #businessTradeApp .trade-filters .board-search { min-height:46px; }
+ #businessTradeApp .board-metrics.trade-metrics { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;margin-bottom:12px; }
+ #businessTradeApp .trade-metrics:not(.kuaishou-metrics) .metric-card:first-child { grid-column:1/-1; }
+ #businessTradeApp .trade-metrics .metric-card { padding:16px 12px; }
+ #businessTradeApp .trade-metrics .metric-value { font-size:clamp(15px,4.6vw,23px);letter-spacing:-.04em;white-space:nowrap; }
+ #businessTradeApp .trade-metrics:not(.kuaishou-metrics) .metric-card:first-child .metric-value { font-size:29px; }
+ #businessTradeApp .trade-metrics .metric-caption { font-size:11px;line-height:1.6;min-height:35px;margin-bottom:8px; }
+ #businessTradeApp .trade-metrics:not(.kuaishou-metrics) .metric-card:first-child .metric-caption { min-height:0; }
+ .summary-section { margin:22px 0 28px; }
+ .summary-title { font-size:17px;margin-bottom:12px; }
+ .summary-section-head { align-items:center;gap:4px; }
+ .summary-jump { font-size:11px;margin-bottom:12px; }
+ .summary-section > .data-caption { font-size:11px;margin-top:0; }
+ .detail-note { font-size:11px;line-height:1.8; }
+ .nav-tabs .tab-btn { font-size:12px;min-height:48px;box-shadow:none; }
+ #acctApp .heading-actions { justify-content:flex-start;gap:10px; }
+ #acctApp .account-filters { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+ #acctApp .account-filters .board-select { font-size:16px;min-height:46px; }
+ #acctApp .account-filters .board-search { grid-column:1/-1;grid-row:2;min-height:46px; }
+ #acctApp .account-filters .result-count { grid-column:1/-1; }
+ #acctApp .metric-value { font-size:clamp(16px,4.8vw,23px);letter-spacing:-.04em; }
+ .balance-pair { gap:10px; }
+ .balance-pair > div { min-width:0; }
+ .balance-pair strong { font-size:clamp(17px,5vw,23px);overflow-wrap:anywhere; }
+ .trade-fields dt { max-width:52%;line-height:1.7; }
+ .trade-shop-card .trade-fields dd { font-size:clamp(17px,4.8vw,21px); }
+}
+@media(max-width:600px) {
+ .shop-summary-wrap { border:0;border-radius:0;background:transparent;overflow:visible; }
+ .shop-summary-table { display:block;min-width:0;font-size:14px; }
+ .shop-summary-table thead { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
+ .shop-summary-table tbody { display:grid;gap:10px; }
+ .shop-summary-table tbody tr { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:15px;background:#fff;border:1px solid var(--border);border-radius:12px; }
+ .shop-summary-table tbody tr:hover { background:#fff; }
+ .shop-summary-table tbody td { display:block;min-width:0;max-width:none;padding:0;border:0;text-align:left;white-space:normal;overflow-wrap:anywhere;font-weight:600;font-size:14px; }
+ .shop-summary-table tbody td::before { content:attr(data-label);display:block;margin-bottom:4px;font-size:10px;font-weight:400;color:var(--text-secondary);line-height:1.5; }
+ .shop-summary-table tbody td:first-child { grid-column:1/-1;min-width:0;max-width:none;padding-bottom:10px;border-bottom:1px solid #edf0f6;font-size:14px;line-height:1.7; }
+ .shop-summary-table tbody td:first-child::before { display:none; }
+ .shop-summary-table tbody td:last-child { grid-column:1/-1;padding-top:4px;font-size:11px;font-weight:400;color:#59677d; }
+ .shop-summary-table tbody td:last-child::before { display:inline;margin-right:8px; }
+ .shop-summary-table .trade-shop-title { gap:6px; }
+}

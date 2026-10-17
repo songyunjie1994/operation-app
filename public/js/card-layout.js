@@ -51,7 +51,7 @@
     root.replaceChildren(sourceHeader('店铺账户',data,cloud,()=>loadAccounts(true)));
     const names=Object.keys(data.stores||{}).sort(), stores=names.map(name=>data.stores[name]);
     if(!names.length){root.append(empty('暂无账户数据','采集并同步后即可查看。'));return}
-    const tools=node('div','board-toolbar'),search=node('input','board-search'),select=node('select','board-select'),count=node('span','result-count'),month=node('select','board-select');
+    const tools=node('div','board-toolbar account-filters'),search=node('input','board-search'),select=node('select','board-select'),count=node('span','result-count'),month=node('select','board-select');
     month.setAttribute('aria-label','账户采集月份');
     const months=[...new Set([currentMonth,...stores.map(s=>monthKey(s.collection?.collectedAt||data.updatedAt)).filter(Boolean)])].sort().reverse();
     for(const value of months){const option=node('option',null,(value===currentMonth?'本月':value.replace('-','年')+'月')+'（'+value+'）');option.value=value;month.append(option)}
@@ -76,8 +76,9 @@
       ]),node('p','detail-note',`当前范围 ${filtered.length} 家。按采集月份筛选，每家店显示最新余额快照；不同日期的余额不累加，美元与人民币分开汇总。`));
       const summaryHead=node('div','summary-section-head'),jump=node('a','summary-jump','向下查看账户明细 ↓');jump.href='#accountShopDetails';summaryHead.append(node('h3','summary-title','各店铺账户汇总'),jump);
       const wrap=node('div','shop-summary-wrap'),table=node('table','shop-summary-table');table.setAttribute('aria-label','账户各店铺汇总');
-      const thead=node('thead'),tr=node('tr');for(const text of ['店铺','可提现 USD','可提现 RMB','待结算 RMB','基础保证金 RMB','采集状态'])tr.append(node('th',null,text));thead.append(tr);table.append(thead);
-      const tbody=node('tbody');for(const name of filtered){const s=data.stores[name],row=node('tr');for(const value of [name,money(s.goods?.usd?.withdrawable,'$'),money(s.goods?.rmb?.withdrawable),money(s.pending?.toSettle),money(s.deposit?.baseBalance),stateLabel(s.collection?.status)])row.append(node('td',null,value));tbody.append(row)}table.append(tbody);wrap.append(table);summary.replaceChildren(summaryHead,wrap);
+      const columns=['店铺','可提现 USD','可提现 RMB','待结算 RMB','基础保证金 RMB','采集状态'];
+      const thead=node('thead'),tr=node('tr');for(const text of columns)tr.append(node('th',null,text));thead.append(tr);table.append(thead);
+      const tbody=node('tbody');for(const name of filtered){const s=data.stores[name],row=node('tr');for(const [i,value] of [name,money(s.goods?.usd?.withdrawable,'$'),money(s.goods?.rmb?.withdrawable),money(s.pending?.toSettle),money(s.deposit?.baseBalance),stateLabel(s.collection?.status)].entries()){const cell=node('td',null,value);cell.dataset.label=columns[i];row.append(cell)}tbody.append(row)}table.append(tbody);wrap.append(table);summary.replaceChildren(summaryHead,wrap);
       for(const name of filtered) {
         const s=data.stores[name],card=node('article','shop-account-card'),head=node('div','card-top');
         head.append(node('h3',null,name),badge(stateLabel(s.collection?.status),s.collection?.status==='success'?'good':'warning'));card.append(head);
