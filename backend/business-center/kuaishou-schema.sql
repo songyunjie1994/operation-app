@@ -16,14 +16,17 @@ create table if not exists public.acct_kuaishou_business_ranges (
 alter table public.acct_kuaishou_business_ranges enable row level security;
 revoke all on public.acct_kuaishou_business_ranges from anon, authenticated;
 grant all on public.acct_kuaishou_business_ranges to service_role;
-create or replace function public.acct_kuaishou_keep_newer()
+create or replace function public.acct_business_keep_newer()
 returns trigger language plpgsql set search_path = public as $$
 begin
  if new.captured_at < old.captured_at then return old; end if;
  return new;
 end;
 $$;
-revoke all on function public.acct_kuaishou_keep_newer() from public;
+revoke all on function public.acct_business_keep_newer() from public;
 drop trigger if exists keep_newer on public.acct_kuaishou_business_ranges;
 create trigger keep_newer before update on public.acct_kuaishou_business_ranges
-for each row execute function public.acct_kuaishou_keep_newer();
+for each row execute function public.acct_business_keep_newer();
+drop trigger if exists keep_newer on public.acct_business_ranges;
+create trigger keep_newer before update on public.acct_business_ranges
+for each row execute function public.acct_business_keep_newer();
