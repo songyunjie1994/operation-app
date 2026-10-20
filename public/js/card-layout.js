@@ -114,39 +114,207 @@
     panel('供应链与库存',[['供应链欠费',s.supply?.debt==null?'未读取':money(s.supply.debt)],['库存条目',s.inventory?.total==null?'未读取':num(s.inventory.total)+' 条'],['库存采集时间',acctTime(s.collection?.inventoryCollectedAt||s.collection?.collectedAt)]]);
     root.append(node('p','detail-note','银行账户信息在此页面隐藏，可在账户中心管理台核对。'));
   }
+  const STOCK_ALIAS_KEY='anbito_inventory_alias_v1';
+  let stockAlias=(()=>{try{const raw=JSON.parse(localStorage.getItem(STOCK_ALIAS_KEY)||'{}');return raw&&typeof raw==='object'?raw:{}}catch{return{}}})();
+  const saveStockAlias=()=>{try{localStorage.setItem(STOCK_ALIAS_KEY,JSON.stringify(stockAlias))}catch{}};
+  const STOCK_UNIT='(?:粒|片|袋|瓶|盒|支|条|包|套|罐|枚|件|箱)';
+  const STOCK_TAIL=new RegExp('(?:\\s*[*x×]?\\s*\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|mg)?\\s*(?:[*x×]\\s*\\d+(?:\\.\\d+)?\\s*(?:g|ml|mg)?\\s*)?'+STOCK_UNIT+'(?:装|套盒|套组)?(?:\\s*\\/\\s*(?:盒|瓶|袋|箱|件|套))?)\\s*$','i');
+  // 抖店货品名常重复写规格（如「30粒/盒 30粒/盒」），拆成「品名 + 规格」，避免不同规格被误合并。
+  function splitStockName(value) {
+    let name=String(value||'').replace(/\s+/g,' ').trim();
+    if(!name)return {base:'未命名货品',spec:''};
+    const seen=new Set();
+    name=name.split(' ').filter(token=>{const key=token.replace(/\s/g,'');if(seen.has(key))return false;seen.add(key);return true}).join(' ');
+    let spec='';
+    for(let i=0;i<8;i++){
+      let next=name.replace(STOCK_TAIL,'').trim();
+      if(next===name)next=name.replace(/\s+\d{1,5}$/,'').trim();
+      if(!next||next===name)break;
+      const removed=name.slice(next.length).replace(/^[\s/*x×]+/,'').trim();
+      if(removed)spec=removed;
+      name=next;
+    }
+    return {base:name||String(value),spec};
+  }
+  const stockAliasName=(key,fallback)=>String(stockAlias[key]||'').trim()||fallback;
   function inventoryView(data,cloud) {
     const root=document.getElementById('supplyInvApp');if(!root)return;
     root.replaceChildren(sourceHeader('抖店货品库存',data,cloud,()=>loadStock(true)));
-    const names=Object.keys(data.stores||{}).sort();
-    const all=names.flatMap(shop=>(data.stores[shop].inventory?.items||[]).map(item=>({...item,shop})));
-    const confirmedEmpty=names.filter(shop=>data.stores[shop].inventory?.total===0&&data.stores[shop].collection?.inventoryStatus==='success');
-    const unready=names.filter(shop=>data.stores[shop].inventory?.total>0&&!Array.isArray(data.stores[shop].inventory?.items));
-    root.append(stats([
-      ['货品库存明细',all.length+' 条','按货品与仓库组合统计'],
-      ['店铺覆盖',names.length+' 家',confirmedEmpty.length+' 家确认暂无库存'],
-      ['现货可分配',num(sum(all,item=>item.available)),'以采集时库存为准'],
-      ['现货为零',all.filter(item=>item.available===0).length+' 条','可展开查看预售与在途']
-    ]));
+    const shops=Object.keys(data.stores||{}).sort();
+    const all=shops.flatMap(shop=>(data.stores[shop].inventory?.items||[]).map(item=>({...item,shop,split:splitStockName(item.name)})));
+    const confirmedEmpty=shops.filter(shop=>data.stores[shop].inventory?.total===0&&data.stores[shop].collection?.inventoryStatus==='success');
+    const unready=shops.filter(shop=>data.stores[shop].inventory?.total>0&&!Array.isArray(data.stores[shop].inventory?.items));
+    const groupMap=new Map();
+    for(const item of all) {
+      const key=item.split.base+'\u0000'+item.split.spec;
+      let group=groupMap.get(key);
+      if(!group) {group={key,base:item.split.base,spec:item.split.spec,names:[],codes:new Set(),shops:new Set(),warehouses:new Set(),items:[],available:0,allocated:0,defective:0};groupMap.set(key,group)}
+      if(item.name&&!group.names.includes(item.name))group.names.push(item.name);
+      if(item.code)group.codes.add(item.code);
+      group.shops.add(item.shop);if(item.warehouse)group.warehouses.add(item.warehouse);group.items.push(item);
+      for(const field of ['available','allocated','defective'])group[field]+=Number(item[field])||0;
+    }
+    const groups=[...groupMap.values()].sort((a,b)=>b.available-a.available||a.key.localeCompare(b.key));
+    for(const group of groups)group.name=stockAliasName(group.key,group.base);
+    const buildNames=()=>{
+      const map=new Map();
+      for(const group of groups) {
+        let row=map.get(group.name);
+        if(!row){row={name:group.name,codes:new Set(),shops:new Set(),warehouses:new Set(),items:0,available:0,allocated:0,defective:0};map.set(group.name,row)}
+        for(const code of group.codes)row.codes.add(code);for(const shop of group.shops)row.shops.add(shop);for(const warehouse of group.warehouses)row.warehouses.add(warehouse);
+        row.items+=group.items.length;row.available+=group.available;row.allocated+=group.allocated;row.defective+=group.defective;
+      }
+      return [...map.values()].sort((a,b)=>b.available-a.available||a.name.localeCompare(b.name));
+    };
+    let nameRows=buildNames();
+    const total=field=>all.reduce((acc,item)=>acc+(Number(item[field])||0),0);
+    const warehouses=new Set(all.map(item=>item.warehouse).filter(Boolean));
+    const zeroItems=all.filter(item=>!(item.available>0));
+    const occupied=zeroItems.filter(item=>Number(item.allocated)>0);
+    const noStockShops=shops.filter(shop=>{const items=data.stores[shop].inventory?.items||[];return !items.length?confirmedEmpty.includes(shop):items.every(item=>!(item.available>0))});
+    const overview=node('section','summary-section');
+    const overviewMetrics=stats([
+      ['现货可分配',num(total('available')),all.length+' 条货品明细'],
+      ['已分配',num(total('allocated')),'待出库与已占用'],
+      ['次品库存',num(total('defective')),'需单独处理'],
+      ['零现货条目',zeroItems.length+' 条','占 '+Math.round(zeroItems.length/Math.max(1,all.length)*100)+'% 明细'],
+      ['无现货店铺',noStockShops.length+' 家','含确认空库存店铺'],
+      ['品名',nameRows.length+' 个',warehouses.size+' 个仓库 · '+shops.length+' 家店铺']
+    ]);
+    overviewMetrics.classList.add('stock-metrics');
+    overview.append(node('h3','summary-title','库存总览'),overviewMetrics);
+    if(occupied.length) {
+      const risk=node('p','stock-risk-note');
+      risk.append(node('strong',null,'零现货仍有分配 '+occupied.length+' 条'),node('span',null,'需确认是否超卖：'+occupied.slice(0,3).map(item=>item.split.base+'（已分配 '+num(item.allocated)+'）').join('、')+(occupied.length>3?' 等':'')));
+      overview.append(risk);
+    }
+    overview.append(node('p','detail-note','现货按采集时库存汇总；同一个品名下的多个抖店名称、规格与编码会合并统计，品名可在下方匹配表中调整。'));
+    root.append(overview);
+    const nameMetric=overviewMetrics.querySelectorAll('.metric-value')[5];
     if(unready.length)root.append(empty('部分库存明细未接通','请刷新数据后重试，不将未读取明细当作零库存。'));
+    const nameSection=node('section','summary-section');
+    const nameHead=node('div','summary-section-head'),nameJump=node('a','summary-jump','向下查看货品明细 ↓');
+    nameJump.href='#stockProductDetails';nameHead.append(node('h3','summary-title','品名汇总'),nameJump);nameSection.append(nameHead);
+    const nameWrap=node('div','shop-summary-wrap stock-table-wrap'),nameTable=node('table','shop-summary-table stock-summary-table');
+    nameTable.setAttribute('aria-label','按品名汇总库存');
+    const nameColumns=['品名','编码','店铺','仓库','现货','已分配','次品','状态'];
+    const nameThead=node('thead'),nameTr=node('tr');for(const text of nameColumns)nameTr.append(node('th',null,text));nameThead.append(nameTr);nameTable.append(nameThead);
+    const nameBody=node('tbody');nameTable.append(nameBody);nameWrap.append(nameTable);nameSection.append(nameWrap);root.append(nameSection);
+    const drawNames=()=>{
+      nameBody.replaceChildren();
+      for(const row of nameRows) {
+        const tr=node('tr');
+        const values=[row.name,row.codes.size+' 个',row.shops.size+' 家',row.warehouses.size+' 个',num(row.available),num(row.allocated),num(row.defective)];
+        values.forEach((value,index)=>{const cell=node('td',null,value);cell.dataset.label=nameColumns[index];tr.append(cell)});
+        const state=row.available===0?(row.allocated>0?'零现货·有分配':'零现货'):'正常';
+        const stateCell=node('td');stateCell.dataset.label='状态';stateCell.append(badge(state,state==='正常'?'good':'warning'));tr.append(stateCell);
+        nameBody.append(tr);
+      }
+      if(!nameRows.length) {const tr=node('tr'),cell=node('td');cell.colSpan=nameColumns.length;cell.append(empty('暂无品名汇总','同步库存后自动生成。'));tr.append(cell);nameBody.append(tr)}
+    };
+    drawNames();
+    const shopSection=node('section','summary-section');shopSection.append(node('h3','summary-title','店铺库存汇总'));
+    const shopWrap=node('div','shop-summary-wrap stock-table-wrap'),shopTable=node('table','shop-summary-table stock-summary-table');
+    shopTable.setAttribute('aria-label','各店铺库存汇总');
+    const shopColumns=['店铺','条目','现货','已分配','次品','零现货','采集时间','状态'];
+    const shopThead=node('thead'),shopTr=node('tr');for(const text of shopColumns)shopTr.append(node('th',null,text));shopThead.append(shopTr);shopTable.append(shopThead);
+    const shopBody=node('tbody');
+    for(const shop of shops) {
+      const store=data.stores[shop],items=store.inventory?.items||[],collection=store.collection;
+      const sumField=field=>items.reduce((acc,item)=>acc+(Number(item[field])||0),0);
+      const zero=items.filter(item=>!(item.available>0)).length;
+      const state=!items.length?(confirmedEmpty.includes(shop)?'空库存':'未读取'):(zero===items.length?'全部零现货':zero/items.length>=0.8?'多数零现货':'正常');
+      const row=node('tr');
+      const values=[shop,items.length+' 条',num(sumField('available')),num(sumField('allocated')),num(sumField('defective')),zero+' 条',acctTime(collection?.inventoryCollectedAt||collection?.collectedAt)];
+      values.forEach((value,index)=>{const cell=node('td',null,value);cell.dataset.label=shopColumns[index];row.append(cell)});
+      const stateCell=node('td');stateCell.dataset.label='状态';stateCell.append(badge(state,state==='正常'?'good':state==='空库存'?'neutral':'warning'));row.append(stateCell);
+      shopBody.append(row);
+    }
+    shopTable.append(shopBody);shopWrap.append(shopTable);shopSection.append(shopWrap);root.append(shopSection);
+    const aliasSection=node('section','summary-section');aliasSection.id='stockAliasSection';
+    const aliasHead=node('div','summary-section-head'),aliasActions=node('div','heading-actions'),aliasSaved=node('span','data-badge neutral','修改自动保存');
+    const exportAlias=()=>{
+      const rows=[['抖店货品名','规格','品名','编码','店铺数','仓库数','现货','已分配','次品']];
+      for(const group of groups)rows.push([group.base,group.spec,group.name,[...group.codes].join('、'),group.shops.size,group.warehouses.size,group.available,group.allocated,group.defective]);
+      const csv=rows.map(row=>row.map(cell=>'"'+String(cell??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+      link.href=url;link.download='库存品名匹配表.csv';link.click();URL.revokeObjectURL(url);
+    };
+    const resetAlias=()=>{stockAlias={};saveStockAlias();inventoryView(data,cloud)};
+    aliasActions.append(aliasSaved,button('导出匹配表',exportAlias),button('重置品名',resetAlias));
+    aliasHead.append(node('h3','summary-title','品名匹配表'),aliasActions);aliasSection.append(aliasHead);
+    aliasSection.append(node('p','detail-note','左边是抖店货品名，右边填写内部品名；例如把「BioEllis石榴复合胶囊」填成「麦角」。填成同一个品名会自动合并汇总，留空则沿用默认品名。修改保存在本机浏览器。'));
+    const aliasTools=node('div','board-toolbar alias-filters'),aliasSearch=node('input','board-search'),aliasFilter=node('select','board-select'),aliasCount=node('span','result-count');
+    aliasSearch.type='search';aliasSearch.placeholder='搜索货品名、品名或编码';aliasSearch.setAttribute('aria-label','搜索品名匹配表');
+    for(const [value,text] of [['','全部货品名'],['empty','仅看未填写品名'],['filled','仅看已填写品名']]) {const opt=node('option',null,text);opt.value=value;aliasFilter.append(opt)}
+    aliasFilter.setAttribute('aria-label','筛选品名匹配表');aliasTools.append(aliasSearch,aliasFilter,aliasCount);aliasSection.append(aliasTools);
+    const aliasWrap=node('div','shop-summary-wrap stock-table-wrap stock-alias-wrap'),aliasTable=node('table','shop-summary-table stock-alias-table');
+    aliasTable.setAttribute('aria-label','库存品名匹配表');
+    const aliasColumns=['抖店货品名','品名','编码','店铺/仓库','现货','已分配','次品'];
+    const aliasThead=node('thead'),aliasTr=node('tr');for(const text of aliasColumns)aliasTr.append(node('th',null,text));aliasThead.append(aliasTr);aliasTable.append(aliasThead);
+    const aliasBody=node('tbody');
+    const applyAlias=key=>{
+      const group=groupMap.get(key);if(!group)return;
+      group.name=stockAliasName(key,group.base);
+      nameRows=buildNames();drawNames();if(nameMetric)nameMetric.textContent=nameRows.length+' 个';
+      for(const alias of root.querySelectorAll('.stock-card-alias'))if(alias.dataset.aliasKey===key)alias.textContent='品名 · '+group.name;
+    };
+    const drawAlias=()=>{
+      aliasBody.replaceChildren();
+      const query=aliasSearch.value.trim().toLowerCase(),mode=aliasFilter.value;
+      const rows=groups.filter(group=>(!mode||(mode==='empty'?!String(stockAlias[group.key]||'').trim():!!String(stockAlias[group.key]||'').trim()))
+        &&(!query||[group.base,group.spec,group.name,...group.codes].some(value=>String(value||'').toLowerCase().includes(query))));
+      aliasCount.textContent='显示 '+rows.length+' / '+groups.length+' 个';
+      for(const group of rows) {
+        const row=node('tr');if(String(stockAlias[group.key]||'').trim())row.classList.add('is-custom');
+        const nameCell=node('td');nameCell.dataset.label='抖店货品名';
+        nameCell.append(node('strong',null,group.base));
+        if(group.spec)nameCell.append(node('span','stock-spec',group.spec));
+        row.append(nameCell);
+        const aliasCell=node('td');aliasCell.dataset.label='品名';
+        const input=node('input','stock-alias-input');input.type='text';input.value=String(stockAlias[group.key]||'');input.placeholder='填写品名（默认 '+group.base+'）';
+        input.setAttribute('aria-label','设置 '+group.base+' 的品名');
+        input.oninput=()=>{
+          const value=input.value.trim();
+          if(value)stockAlias[group.key]=value;else delete stockAlias[group.key];
+          saveStockAlias();row.classList.toggle('is-custom',!!value);
+          aliasSaved.textContent='已保存';aliasSaved.className='data-badge good';
+          setTimeout(()=>{aliasSaved.textContent='修改自动保存';aliasSaved.className='data-badge neutral'},1600);
+          applyAlias(group.key);
+        };
+        aliasCell.append(input);row.append(aliasCell);
+        const codeCell=node('td',null,[...group.codes].join('、'));codeCell.dataset.label='编码';row.append(codeCell);
+        const scopeCell=node('td',null,group.shops.size+' 家 / '+group.warehouses.size+' 个');scopeCell.dataset.label='店铺/仓库';row.append(scopeCell);
+        for(const [label,value] of [['现货',group.available],['已分配',group.allocated],['次品',group.defective]]){const cell=node('td',null,num(value));cell.dataset.label=label;row.append(cell)}
+        aliasBody.append(row);
+      }
+      if(!rows.length) {const row=node('tr'),cell=node('td');cell.colSpan=aliasColumns.length;cell.append(empty('没有匹配的货品名','可以修改搜索关键词或筛选条件。'));row.append(cell);aliasBody.append(row)}
+    };
+    aliasTable.append(aliasBody);aliasWrap.append(aliasTable);aliasSection.append(aliasWrap);root.append(aliasSection);
+    drawAlias();aliasSearch.oninput=drawAlias;aliasFilter.onchange=drawAlias;
+    const detailSection=node('section','summary-section');detailSection.id='stockProductDetails';
+    detailSection.append(node('h3','summary-title','货品明细'));
     const tools=node('div','board-toolbar'),search=node('input','board-search'),shopSelect=node('select','board-select'),status=node('select','board-select');
-    search.type='search';search.placeholder='搜索货品名称、编码或仓库';search.value=ui.stockQuery;search.setAttribute('aria-label','搜索抖店货品');
-    for(const [value,text] of [['','全部店铺 · '+names.length+' 家'],...names.map(name=>[name,name+(confirmedEmpty.includes(name)?' · 空库存':'')])]) {const opt=node('option',null,text);opt.value=value;shopSelect.append(opt)}
+    search.type='search';search.placeholder='搜索品名、货品名称、编码或仓库';search.value=ui.stockQuery;search.setAttribute('aria-label','搜索抖店货品');
+    for(const [value,text] of [['','全部店铺 · '+shops.length+' 家'],...shops.map(name=>[name,name+(confirmedEmpty.includes(name)?' · 空库存':'')])]) {const opt=node('option',null,text);opt.value=value;shopSelect.append(opt)}
     shopSelect.value=ui.stockShop;shopSelect.setAttribute('aria-label','筛选库存店铺');
     for(const [value,text] of [['','全部现货状态'],['positive','有现货'],['zero','现货为零']]){const opt=node('option',null,text);opt.value=value;status.append(opt)}
     status.value=ui.stockStatus;status.setAttribute('aria-label','筛选现货状态');
-    tools.append(search,shopSelect,status);root.append(tools);
-    const pager=node('div','card-pagination'),grid=node('div','supply-card-grid');root.append(pager,grid);
+    tools.append(search,shopSelect,status);detailSection.append(tools);
+    const pager=node('div','card-pagination'),grid=node('div','supply-card-grid');detailSection.append(pager,grid);root.append(detailSection);
     const draw=()=>{
       const query=ui.stockQuery.toLowerCase();
-      const items=all.filter(it=>(!ui.stockShop||it.shop===ui.stockShop)&&(!query||[it.name,it.code,it.cargoId,it.warehouse].some(v=>String(v||'').toLowerCase().includes(query))))
+      const items=all.filter(it=>(!ui.stockShop||it.shop===ui.stockShop)&&(!query||[it.name,it.code,it.cargoId,it.warehouse,it.shop,it.split.base,it.split.spec,stockAliasName(it.split.base+'\u0000'+it.split.spec,it.split.base)].some(v=>String(v||'').toLowerCase().includes(query))))
         .filter(it=>!ui.stockStatus||(ui.stockStatus==='positive'?it.available>0:it.available===0));
       const pages=Math.max(1,Math.ceil(items.length/24));ui.stockPage=Math.min(ui.stockPage,pages);
       pager.replaceChildren(node('span','result-count','匹配 '+items.length+' 条 · 第 '+ui.stockPage+' / '+pages+' 页'));
       const prev=button('上一页',()=>{ui.stockPage--;draw()}),next=button('下一页',()=>{ui.stockPage++;draw()});
       prev.disabled=ui.stockPage<=1;next.disabled=ui.stockPage>=pages;pager.append(prev,next);grid.replaceChildren();
       for(const it of items.slice((ui.stockPage-1)*24,ui.stockPage*24)) {
+        const groupKey=it.split.base+'\u0000'+it.split.spec,group=groupMap.get(groupKey);
         const card=node('article','stock-product-card'),head=node('div','card-top');
         head.append(badge(it.shop),badge(it.available==null?'未读取':it.available===0?'现货为零':'有现货',it.available==null||it.available===0?'warning':'good'));card.append(head,node('h3',null,it.name||it.cargoId||'未命名货品'));
+        const alias=node('p','card-caption stock-card-alias','品名 · '+(group?group.name:it.split.base));alias.dataset.aliasKey=groupKey;card.append(alias);
         card.append(node('p','card-caption','编码 '+(it.code||'—')+' · '+(it.warehouse||it.warehouseType||'仓库未读取')));
         const balances=node('div','balance-pair');
         for(const [label,value] of [['现货可分配',it.available],['预售可分配',it.preAvailable]]) {const cell=node('div');cell.append(node('span',null,label),node('strong',null,num(value)));balances.append(cell)}
