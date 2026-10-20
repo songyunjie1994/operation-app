@@ -87,5 +87,18 @@
  .shop-summary-table tbody td:first-child::before { display:none; }
  .shop-summary-table tbody td:last-child { grid-column:1/-1;padding-top:4px;font-size:11px;font-weight:400;color:#59677d; }
  .shop-summary-table tbody td:last-child::before { display:inline;margin-right:8px; }
+ .shop-summary-table.stock-rollup-table tbody tr { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .shop-summary-table.stock-rollup-table tbody td { width:auto; }
+ .shop-summary-table.stock-rollup-table tbody td:first-child { grid-column:1/-1; }
+ .shop-summary-table.stock-rollup-table tbody td:last-child { grid-column:auto;padding-top:0;font-size:14px;font-weight:600;color:var(--text); }
+ .shop-summary-table.stock-rollup-table tbody td:last-child::before { display:block;margin-right:0; }
  .shop-summary-table .trade-shop-title { gap:6px; }
+}
+@media(max-width:760px) {
+ .board-metrics.stock-metrics-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .stock-store-card { padding:14px; }
+ .stock-store-head { flex-direction:column;gap:10px; }
+ .stock-store-sums { width:100%;justify-content:space-between;text-align:left;gap:8px; }
+ .stock-store-sums div { flex:1;min-width:0; }
+ .stock-search-bar .board-search { max-width:none; }
 }
