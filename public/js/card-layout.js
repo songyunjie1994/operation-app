@@ -168,10 +168,13 @@
     const confirmedEmpty=shops.filter(shop=>data.stores[shop].inventory?.total===0&&data.stores[shop].collection?.inventoryStatus==='success');
     const unready=shops.filter(shop=>data.stores[shop].inventory?.total>0&&!Array.isArray(data.stores[shop].inventory?.items));
     const totalRows=stockRollup(all);
+    // 现货、已分配、次品全为 0 的品名不展示。
+    const hasStock=row=>Number(row.available)!==0||Number(row.allocated)!==0||Number(row.defective)!==0;
+    const activeTotalRows=totalRows.filter(hasStock);
     const total=field=>all.reduce((acc,item)=>acc+(Number(item[field])||0),0);
     const overview=node('section','summary-section');
     const overviewMetrics=stats([
-      ['品名',totalRows.length+' 个',shops.length+' 家店铺'],
+      ['品名',activeTotalRows.length+' 个','仅统计非全 0 品名'],
       ['现货可分配',num(total('available')),'采集时库存'],
       ['已分配',num(total('allocated')),'待出库与已占用'],
       ['次品库存',num(total('defective')),'需单独处理']
@@ -186,7 +189,7 @@
       risk.append(node('strong',null,'零现货仍有分配 '+occupied.length+' 条'),node('span',null,'可搜索品名核对：'+riskNames.slice(0,4).join('、')+(riskNames.length>4?' 等':'')));
       overview.append(risk);
     }
-    overview.append(node('p','detail-note','品名由内置匹配表自动归并：同一品名下的不同店铺、规格和编码会合并统计。'));
+    overview.append(node('p','detail-note','品名由内置匹配表自动归并：同一品名下的不同店铺、规格和编码会合并统计；现货、已分配、次品全为 0 的品名和店铺不展示。'));
     root.append(overview);
     if(unready.length)root.append(empty('部分库存明细未接通','请刷新数据后重试，不将未读取明细当作零库存。'));
 
@@ -224,7 +227,8 @@
     };
     const storeCards=shops.map(shop=>{
       const store=data.stores[shop],items=store.inventory?.items||[],collection=store.collection;
-      const rows=stockRollup(items.map(item=>({...item,shop,product:stockProductName(item)})));
+      const rows=stockRollup(items.map(item=>({...item,shop,product:stockProductName(item)}))).filter(hasStock);
+      const active=rows.length>0;
       const card=node('article','stock-store-card');card.dataset.shop=shop;
       const head=node('header','stock-store-head'),title=node('div','stock-store-title');
       title.append(node('h4',null,shop));
@@ -245,20 +249,23 @@
       } else {
         card.append(node('p','stock-store-empty',confirmedEmpty.includes(shop)?'本次采集确认该店暂无货品库存。':'库存明细未读取，请刷新数据后重试。'));
       }
-      return {shop,card,rows,sumEls};
+      return {shop,card,rows,sumEls,active};
     });
-    storeCards.forEach(entry=>storeList.append(entry.card));
+    const activeStoreCards=storeCards.filter(entry=>entry.active);
+    activeStoreCards.forEach(entry=>storeList.append(entry.card));
+    const hiddenStores=storeCards.length-activeStoreCards.length;
+    if(hiddenStores)storeSection.append(node('p','detail-note','另有 '+hiddenStores+' 家店铺无可展示的品名（空库存或明细未读取），已隐藏。'));
 
     const draw=()=>{
       const query=search.value.trim().toLowerCase();
       const match=text=>!query||String(text||'').toLowerCase().includes(query);
-      const visibleTotal=totalRows.filter(row=>match(row.name));
+      const visibleTotal=activeTotalRows.filter(row=>match(row.name));
       fillRollup(totalBody,visibleTotal);
       if(!visibleTotal.length) {
-        const tr=node('tr'),cell=node('td');cell.colSpan=4;cell.append(empty('没有匹配的品名','可以换个关键词试试。'));tr.append(cell);totalBody.append(tr);
+        const tr=node('tr'),cell=node('td');cell.colSpan=4;cell.append(empty(query?'没有匹配的品名':'暂无非全 0 品名',query?'可以换个关键词试试。':'现货、已分配、次品全为 0 的品名已隐藏。'));tr.append(cell);totalBody.append(tr);
       }
       let visibleStores=0;
-      for(const {shop,card,rows,sumEls} of storeCards) {
+      for(const {shop,card,rows,sumEls} of activeStoreCards) {
         const shopHit=match(shop),rowHits=rows.filter(row=>match(row.name));
         const show=!query||shopHit||rowHits.length>0;
         card.hidden=!show;
@@ -270,7 +277,7 @@
         const fields=['available','allocated','defective'];
         sumEls.forEach((el,index)=>el.textContent=num(shown.reduce((acc,row)=>acc+row[fields[index]],0)));
       }
-      totalCount.textContent=query?'匹配 '+visibleTotal.length+' 个品名 · '+visibleStores+' 家店铺':'共 '+totalRows.length+' 个品名 · '+shops.length+' 家店铺';
+      totalCount.textContent=query?'匹配 '+visibleTotal.length+' 个品名 · '+visibleStores+' 家店铺':'共 '+activeTotalRows.length+' 个品名 · '+activeStoreCards.length+' 家店铺';
     };
     search.oninput=draw;draw();
   }
