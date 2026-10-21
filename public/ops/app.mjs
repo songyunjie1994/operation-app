@@ -110,7 +110,12 @@ function render(){
  if(!['account','inventory'].includes(module)&&start&&end&&start>end){stats([]);table([],[]);$('#status').textContent='开始日期不能晚于结束日期';$('#analytics').hidden=true;return}
 
  if(module==='business'){
-  const data=latestPeriods((cache.business??[]).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end)));
+  const data=latestPeriods((cache.business??[]).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end))).sort((a,b)=>{
+   const aNet=businessNet(a),bNet=businessNet(b);
+   if(aNet===null)return bNet===null?0:1;
+   if(bNet===null)return -1;
+   return bNet-aNet;
+  });
   const scope=platform==='douyin'?'抖店':platform==='kuaishou'?'快手':'抖店 + 快手';
   const amountNote=get=>`${scope} · 已知 ${data.filter(r=>finite(get(r))).length} / ${data.length} 个期间`;
   stats([['已采店铺',new Set(data.map(r=>r.shop_key)).size+' 家','有期间记录；金额完整度见下方'],['成交金额',moneyCents(sum(data,r=>r.gross_cents)),amountNote(r=>r.gross_cents)],['退款金额',moneyCents(sum(data,r=>r.refund_payment_cents)),amountNote(r=>r.refund_payment_cents)],['净成交金额',moneyCents(sum(data,businessNet)),amountNote(businessNet)+'；成交 − 退款']]);
