@@ -41,6 +41,27 @@ test('business period extension does not double-count overlapping monthly captur
  assert.ok(p.node('#table').innerHTML.includes('2026-10-20'));
  assert.ok(!p.node('#table').innerHTML.includes('2026-10-19'));
 });
+
+test('business gross, refund and calculated net include both platforms and follow platform filters',async()=>{
+ const base={start_date:'2026-10-01',end_date:'2026-10-20',captured_at:'2026-10-21T00:00:00Z'};
+ const p=await portal({ops_shops:[{shop_key:'d',shop_name:'抖店甲',platform:'douyin'},{shop_key:'k',shop_name:'快手乙',platform:'kuaishou'}],ops_business:[{...base,shop_key:'d',platform:'douyin',gross_cents:269719190,refund_payment_cents:96458899,net_cents:173260291},{...base,shop_key:'k',platform:'kuaishou',gross_cents:433757800,refund_payment_cents:297118293,net_cents:null}]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.node('#refresh').onclick();
+ assert.match(p.node('#summary').innerHTML,/7,034,769\.90/);assert.match(p.node('#summary').innerHTML,/3,935,771\.92/);assert.match(p.node('#summary').innerHTML,/3,098,997\.98/);
+ assert.match(p.node('#table').innerHTML,/1,366,395\.07/);assert.match(p.node('#cards').innerHTML,/1,366,395\.07/);assert.ok(!p.node('#summary').innerHTML.includes('净成交（抖店）'));
+ for(const [platform,expected] of [['douyin','1,732,602.91'],['kuaishou','1,366,395.07']]){p.node('#platform').value=platform;p.node('#platform').onchange();assert.ok(p.node('#summary').innerHTML.includes(expected));assert.equal(p.node('#row-count').textContent,'1 条');}
+ p.node('#platform').value='';p.node('#search').value='乙';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/1,366,395\.07/);assert.equal(p.node('#row-count').textContent,'1 条');
+});
+
+test('business missing values do not create net, while zero and negative net remain visible',async()=>{
+ const base={start_date:'2026-10-01',end_date:'2026-10-20',captured_at:'2026-10-21T00:00:00Z',platform:'kuaishou'};
+ const metrics=[{shop_key:'missing',gross_cents:null,refund_payment_cents:500,net_cents:999},{shop_key:'zero',gross_cents:0,refund_payment_cents:0,net_cents:null},{shop_key:'negative',gross_cents:1000,refund_payment_cents:2000,net_cents:null}];
+ const p=await portal({ops_shops:metrics.map(r=>({shop_key:r.shop_key,shop_name:r.shop_key,platform:'kuaishou'})),ops_business:metrics.map(r=>({...base,...r}))});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.node('#refresh').onclick();
+ assert.match(p.node('#summary').innerHTML,/-¥10\.00/);assert.match(p.node('#summary').innerHTML,/已知 2 \/ 3 个期间/);assert.match(p.node('#coverage').innerHTML,/当前为已知金额小计/);assert.match(p.node('#table').innerHTML,/>¥0\.00</);assert.ok(!p.node('#summary').innerHTML.includes('9.99'));
+ p.node('#search').value='missing';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>—/);
+ p.node('#search').value='zero';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>¥0\.00/);
+ p.node('#end').value='2026-10-10';p.node('#end').onchange();assert.equal(p.node('#row-count').textContent,'0 条');assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>—/);
+});
 test('password login maps admin alias, clears password and persists only the session',async()=>{
  const p=await portal({},{signedOut:true});p.node('#email').value='admin';p.node('#password').value='unit-password-not-a-real-secret';
  await p.node('#login-form').onsubmit({preventDefault(){}});

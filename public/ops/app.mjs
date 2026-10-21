@@ -22,6 +22,7 @@ const latestPeriods=items=>[...items.reduce((m,r)=>{const key=[r.platform,r.shop
 const sum=(items,get)=>{const values=items.map(get).filter(x=>typeof x==='number'&&Number.isFinite(x));return values.length?values.reduce((a,b)=>a+b,0):null};
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const moneyCents=n=>finite(n)?money(n/100):'—';
+const businessNet=r=>finite(r.gross_cents)&&finite(r.refund_payment_cents)?r.gross_cents-r.refund_payment_cents:null;
 const addMoney=(items,get)=>{const values=items.map(get).filter(finite);return values.length?values.reduce((s,v)=>s+Math.round(v*100),0)/100:null};
 const ratio=(items,key)=>items.length&&items.every(r=>finite(r.spend)&&finite(r[key]))&&addMoney(items,r=>r.spend)>0?(addMoney(items,r=>r[key])/addMoney(items,r=>r.spend)).toFixed(2):'—';
 function renderCoverage(data,shops,allowed,start,end){
@@ -32,7 +33,7 @@ function renderCoverage(data,shops,allowed,start,end){
  const partial=data.filter(r=>r.start_date<=(start||r.start_date)&&r.end_date<(end||r.end_date));
  const last=data.map(r=>r.captured_at).sort().at(-1);
  $('#coverage').hidden=false;
- $('#coverage').innerHTML=`<div><strong>经营数据覆盖</strong><span class="coverage-pill">${new Set(data.map(r=>r.shop_key)).size} / ${expected.length} 家有记录</span></div><p>所选范围内 ${data.length} 个已采期间 · ${unknown.length} 个期间金额不全 · ${adjusted.length} 个期间未达到请求截止日${partial.length?' · '+partial.length+' 个期间早于筛选截止日':''}${last?' · 最近采集 '+esc(stamp(last)):''}</p>${missing.length?`<details><summary>查看 ${missing.length} 家暂无期间记录的店铺</summary><p>${missing.map(s=>esc(s.shop_name)).join('、')}</p></details>`:''}`;
+ $('#coverage').innerHTML=`<div><strong>经营数据覆盖</strong><span class="coverage-pill">${new Set(data.map(r=>r.shop_key)).size} / ${expected.length} 家有记录</span></div><p>所选范围内 ${data.length} 个已采期间 · ${unknown.length} 个期间金额不全 · ${adjusted.length} 个期间未达到请求截止日${partial.length?' · '+partial.length+' 个期间早于筛选截止日':''}${last?' · 最近采集 '+esc(stamp(last)):''}</p><p>三项金额均按当前平台、店铺和期间筛选。净成交 = 成交 − 退款（抖店按支付时间，快手按支付日）。${unknown.length?'当前为已知金额小计；缺失金额保留“—”，净成交仅计算成交与退款均有值的期间。':''}</p>${missing.length?`<details><summary>查看 ${missing.length} 家暂无期间记录的店铺</summary><p>${missing.map(s=>esc(s.shop_name)).join('、')}</p></details>`:''}`;
 }
 function trafficRecords(platform,search){
  const raw=(cache.traffic??[]).map(r=>({...r.payload,kind:r.kind}));
@@ -110,9 +111,11 @@ function render(){
 
  if(module==='business'){
   const data=latestPeriods((cache.business??[]).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end)));
-  stats([['已采店铺',new Set(data.map(r=>r.shop_key)).size+' 家'],['成交金额',money(sum(data,r=>r.gross_cents)/100),'人民币；仅含已采期间'],['退款金额',money(sum(data,r=>r.refund_payment_cents)/100),'按支付时间/支付日口径'],['净成交（抖店）',moneyCents(sum(data.filter(r=>r.platform==='douyin'),r=>r.net_cents)),'成交金额减支付时间退款；仅已知金额']].map((r,i)=>{if(i===1&&sum(data,r=>r.gross_cents)===null)r[1]='—';if(i===2&&sum(data,r=>r.refund_payment_cents)===null)r[1]='—';return r}));
-  renderCoverage(data,shops,allowed,start,end);$('#table-title').textContent='各店铺经营汇总';table(['平台','店铺','期间','成交金额','退款金额','净成交（抖店）','采集时间'],data.map(r=>[r.platform==='kuaishou'?'快手':'抖店',name(r),r.start_date+' 至 '+r.end_date,r.gross_cents===null?'—':money(r.gross_cents/100),r.refund_payment_cents===null?'—':money(r.refund_payment_cents/100),r.net_cents===null?'—':money(r.net_cents/100),stamp(r.captured_at)]));
-  $('#cards').innerHTML=data.map(r=>`<article class="shop-card"><h3>${badge(r.platform)}${esc(name(r))}</h3><dl><div><dt>成交金额</dt><dd>${esc(r.gross_cents===null?'—':money(r.gross_cents/100))}</dd></div><div><dt>${r.platform==='kuaishou'?'退款金额（支付日）':'退款金额（支付时间）'}</dt><dd>${esc(r.refund_payment_cents===null?'—':money(r.refund_payment_cents/100))}</dd></div></dl><footer>${esc(r.start_date)} — ${esc(r.end_date)}<br>请求截至：${esc(r.requested_end_date??r.end_date)}<br>采集：${esc(stamp(r.captured_at))}</footer></article>`).join('');
+  const scope=platform==='douyin'?'抖店':platform==='kuaishou'?'快手':'抖店 + 快手';
+  const amountNote=get=>`${scope} · 已知 ${data.filter(r=>finite(get(r))).length} / ${data.length} 个期间`;
+  stats([['已采店铺',new Set(data.map(r=>r.shop_key)).size+' 家','有期间记录；金额完整度见下方'],['成交金额',moneyCents(sum(data,r=>r.gross_cents)),amountNote(r=>r.gross_cents)],['退款金额',moneyCents(sum(data,r=>r.refund_payment_cents)),amountNote(r=>r.refund_payment_cents)],['净成交金额',moneyCents(sum(data,businessNet)),amountNote(businessNet)+'；成交 − 退款']]);
+  renderCoverage(data,shops,allowed,start,end);$('#table-title').textContent='各店铺经营汇总';table(['平台','店铺','期间','成交金额','退款金额','净成交金额','采集时间'],data.map(r=>[r.platform==='kuaishou'?'快手':'抖店',name(r),r.start_date+' 至 '+r.end_date,moneyCents(r.gross_cents),moneyCents(r.refund_payment_cents),moneyCents(businessNet(r)),stamp(r.captured_at)]));
+  $('#cards').innerHTML=data.map(r=>`<article class="shop-card"><h3>${badge(r.platform)}${esc(name(r))}</h3><dl><div><dt>成交金额</dt><dd>${esc(moneyCents(r.gross_cents))}</dd></div><div><dt>${r.platform==='kuaishou'?'退款金额（支付日）':'退款金额（支付时间）'}</dt><dd>${esc(moneyCents(r.refund_payment_cents))}</dd></div><div><dt>净成交金额</dt><dd>${esc(moneyCents(businessNet(r)))}</dd></div></dl><footer>${esc(r.start_date)} — ${esc(r.end_date)}<br>请求截至：${esc(r.requested_end_date??r.end_date)}<br>采集：${esc(stamp(r.captured_at))}</footer></article>`).join('');
  }else if(module==='account'){
   const data=latest(cache.accounts??[],r=>r.shop_key).filter(allowed);const total=(currency,key)=>sum(data,r=>r.funds?.goods?.[currency]?.[key]);
   stats([['账户店铺',data.length+' 家'],['人民币可提现',money(total('rmb','withdrawable')),'人民币独立统计'],['美元可提现',money(total('usd','withdrawable'),'USD'),'美元独立统计'],['未知来源字段',data.reduce((n,r)=>n+['usd','rmb'].filter(c=>!r.funds.goods[c]).length,0)+' 项','缺失不作为0参与统计']]);
