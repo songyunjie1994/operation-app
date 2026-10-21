@@ -1,7 +1,8 @@
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
 const labels={traffic:'投流管理',business:'经营数据',inventory:'库存数据',account:'账户资金'};
-let session=null,module='business',cache={},loadGeneration=0;
+const requestedModule=new URLSearchParams(location.search).get('module');
+let session=null,module=Object.hasOwn(labels,requestedModule)?requestedModule:'business',cache={},loadGeneration=0;
 const esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=(n,currency='CNY')=>typeof n==='number'&&Number.isFinite(n)?new Intl.NumberFormat('zh-CN',{style:'currency',currency,maximumFractionDigits:2}).format(n):'—';
 const stamp=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'—';
@@ -17,6 +18,7 @@ async function rows(table,select='*'){
  for(let offset=0;offset<10000;offset+=200){const r=await fetch(C.url+'/rest/v1/'+table+'?select='+encodeURIComponent(select)+'&order='+ (table==='ops_shops'?'shop_key':'id')+'&limit=200&offset='+offset,{headers:{apikey:C.anonKey,Authorization:'Bearer '+session.access_token},cache:'no-store'});if(r.status===401)throw Error('登录已过期，请重新登录');if(!r.ok)throw Error('数据暂时不可读取，请稍后刷新');const page=await r.json();result.push(...page);if(page.length<200)return result}throw Error('数据量超过当前查询上限，请联系管理员');
 }
 const latest=(items,key)=>[...items.reduce((m,r)=>{const k=key(r),old=m.get(k);if(!old||r.captured_at>old.captured_at)m.set(k,r);return m},new Map()).values()];
+const latestPeriods=items=>[...items.reduce((m,r)=>{const key=[r.platform,r.shop_key,r.start_date].join('|'),old=m.get(key);if(!old||r.end_date>old.end_date||(r.end_date===old.end_date&&r.captured_at>old.captured_at))m.set(key,r);return m},new Map()).values()];
 const sum=(items,get)=>{const values=items.map(get).filter(x=>typeof x==='number'&&Number.isFinite(x));return values.length?values.reduce((a,b)=>a+b,0):null};
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
 function table(headers,items){$('#row-count').textContent=items.length+' 条';$('#table').innerHTML=items.length?`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${items.map(row=>'<tr>'+row.map(cell=>`<td>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table>`:'<div class="empty">当前筛选下没有可读取的数据。未完成首次邮箱验证或尚未加入成员时，也不会显示业务数据。</div>'}
@@ -28,7 +30,7 @@ function render(){
  const range=d=>d&&(!start||d>=start)&&(!end||d<=end);
  $('#cards').innerHTML='';$('#module-title').textContent=labels[module];
  if(module==='business'){
-  const data=latest(cache.business??[],r=>[r.platform,r.shop_key,r.start_date,r.end_date].join('|')).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end));
+  const data=latestPeriods((cache.business??[]).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end)));
   stats([['已采店铺',new Set(data.map(r=>r.shop_key)).size+' 家'],['成交金额',money(sum(data,r=>r.gross_cents)/100),'人民币；仅含已采期间'],['退款金额',money(sum(data,r=>r.refund_payment_cents)/100),'按支付时间/支付日口径'],['期间记录',data.length+' 条','抖店经营仍有已知缺口']].map((r,i)=>{if(i===1&&sum(data,r=>r.gross_cents)===null)r[1]='—';if(i===2&&sum(data,r=>r.refund_payment_cents)===null)r[1]='—';return r}));
   $('#table-title').textContent='各店铺经营汇总';table(['平台','店铺','期间','成交金额','退款金额','净成交（抖店）','采集时间'],data.map(r=>[r.platform==='kuaishou'?'快手':'抖店',name(r),r.start_date+' 至 '+r.end_date,r.gross_cents===null?'—':money(r.gross_cents/100),r.refund_payment_cents===null?'—':money(r.refund_payment_cents/100),r.net_cents===null?'—':money(r.net_cents/100),stamp(r.captured_at)]));
   $('#cards').innerHTML=data.map(r=>`<article class="shop-card"><h3>${badge(r.platform)}${esc(name(r))}</h3><dl><div><dt>成交金额</dt><dd>${esc(r.gross_cents===null?'—':money(r.gross_cents/100))}</dd></div><div><dt>${r.platform==='kuaishou'?'退款金额（支付日）':'退款金额（支付时间）'}</dt><dd>${esc(r.refund_payment_cents===null?'—':money(r.refund_payment_cents/100))}</dd></div></dl><footer>${esc(r.start_date)} — ${esc(r.end_date)}<br>请求截至：${esc(r.requested_end_date??r.end_date)}<br>采集：${esc(stamp(r.captured_at))}</footer></article>`).join('');
@@ -65,7 +67,7 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();$('#send-link').disabled=
 $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true;$('#login').hidden=false};
 $('#refresh').onclick=()=>load(true);
 for(const id of ['start','end','search','platform'])$('#'+id).addEventListener(id==='search'?'input':'change',()=>render());
-for(const button of document.querySelectorAll('[data-module]'))button.onclick=()=>{module=button.dataset.module;document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()};
+for(const button of document.querySelectorAll('[data-module]')){button.classList.toggle('active',button.dataset.module===module);button.onclick=()=>{module=button.dataset.module;history.replaceState(null,'',location.pathname+'?module='+module);document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()}};
 const fragment=new URLSearchParams(location.hash.slice(1));
 if(fragment.has('access_token')){saveSession({access_token:fragment.get('access_token'),refresh_token:fragment.get('refresh_token'),expires_at:Date.now()/1000+Number(fragment.get('expires_in')??3600)});history.replaceState(null,'',location.pathname+location.search)}else session=readSession();
 if(fragment.get('error_description'))$('#login-message').textContent='登录链接已失效，请重新发送。';
