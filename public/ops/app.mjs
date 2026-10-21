@@ -71,10 +71,13 @@ function renderTraffic(start,end,search,platform){
   $('#table-title').textContent='广告消耗明细';
   table(['日期','账户','中介','平台账户ID','抖音号名称','抖音号','广告消耗','成交金额','成交投产','净成交金额','净成交投产'],[...data].sort((a,b)=>b.date.localeCompare(a.date)||(b.spend??0)-(a.spend??0)).map(r=>[r.date,r.campaign?.name??r.advertiserId,r.campaign?.broker,r.advertiserId,r.douyinName,r.douyinNumber,money(r.spend),money(r.revenue),ratio([r],'revenue'),money(r.netRevenue),ratio([r],'netRevenue')]));return;
  }else if(trafficView==='creator'){
-  headers[0]='抖音号（按账户区分）';body=grouped(r=>[r.campaignId||r.advertiserId,r.douyinNumber||r.douyinName||'未提供抖音号'].join('|')).sort((a,b)=>(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity)).map(([,rs])=>groupRow((rs[0].douyinName||rs[0].douyinNumber||'未提供抖音号')+' / '+(rs[0].douyinNumber||'—')+' · '+(rs[0].campaign?.name||rs[0].advertiserId||'—'),rs));
+  headers.splice(0,1,'日期','抖音号名称','抖音号','账户');
+  body=grouped(r=>JSON.stringify([r.date,r.campaignId||r.advertiserId,r.douyinNumber||r.douyinName||'未提供抖音号']))
+   .sort((a,b)=>b[1][0].date.localeCompare(a[1][0].date)||(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity))
+   .map(([,rs])=>{const r=rs[0];return [r.date,r.douyinName,r.douyinNumber,r.campaign?.name||r.advertiserId,...groupRow('',rs).slice(1)]});
  }else if(trafficView==='daily'){headers[0]='日期';body=[...daily].reverse().map(([d,rs])=>groupRow(d,rs))}
  else body=rank.map(([id,rs])=>groupRow((campaigns.get(id)?.name??rs[0].advertiserId??'未映射账户')+' · '+(rs[0].advertiserId??id),rs));
- $('#table-title').textContent=({account:'账户消耗汇总',creator:'抖音号消耗汇总',daily:'每日消耗汇总'})[trafficView];table(headers,body);
+ $('#table-title').textContent=({account:'账户消耗汇总',creator:'每日抖音号消耗汇总',daily:'每日消耗汇总'})[trafficView];table(headers,body);
 }
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
 const PAGE_SIZE=15;let page=0,inventoryProduct=null;

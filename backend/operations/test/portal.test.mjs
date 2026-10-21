@@ -97,6 +97,30 @@ test('consumption groups use weighted ROI and financial spend stays separate',as
  p.views.find(b=>b.dataset.view==='detail').onclick();assert.equal(p.node('#row-count').textContent,'2 条');
 });
 
+test('creator consumption separates dates and accounts and sums only the same daily identity',async()=>{
+ const p=await portal({ops_traffic_current_rows:[
+  {kind:'campaigns',payload:{id:'a',name:'甲账户',platform:'千川'}},
+  {kind:'campaigns',payload:{id:'b',name:'乙账户',platform:'千川'}},
+  ...[
+   ['a','2026-10-19','001',100,200],['a','2026-10-20','001',10,20],
+   ['a','2026-10-20','001',30,90],['b','2026-10-20','001',5,null],
+   ['a','2026-10-20','002',null,null]
+  ].map(([campaignId,date,douyinNumber,spend,revenue])=>({kind:'records',payload:{campaignId,date,douyinNumber,douyinName:'号'+douyinNumber,spend,revenue,netRevenue:revenue}}))
+ ]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ p.views.find(b=>b.dataset.view==='creator').onclick();
+ assert.equal(p.node('#row-count').textContent,'4 条');
+ const table=p.node('#table').innerHTML,rows=table.match(/<tr>.*?<\/tr>/g).slice(1);
+ assert.match(rows[0],/2026-10-20.*001.*甲账户.*¥40\.00.*2\.75.*2 条/);
+ assert.match(rows[1],/2026-10-20.*001.*乙账户.*¥5\.00/);
+ assert.match(rows[2],/2026-10-20.*002.*data-label="广告消耗">—/);
+ assert.match(rows[3],/2026-10-19.*001.*甲账户.*¥100\.00/);
+ assert.match(table,/data-label="日期"/);assert.match(table,/data-label="抖音号"/);
+ p.node('#start').value='2026-10-20';p.node('#start').onchange();assert.equal(p.node('#row-count').textContent,'3 条');
+ p.node('#traffic-account').value='a';p.node('#traffic-account').onchange();assert.equal(p.node('#row-count').textContent,'2 条');
+ p.node('#search').value='001';p.node('#search').oninput();assert.equal(p.node('#row-count').textContent,'1 条');assert.match(p.node('#table').innerHTML,/¥40\.00/);
+});
+
 test('unknown revenue does not create a false ROI and filters apply to all consumption views',async()=>{
  const p=await portal({ops_traffic_current_rows:[
   {kind:'campaigns',payload:{id:'a',name:'甲账户',platform:'千川',broker:'甲'}},
