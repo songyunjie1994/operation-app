@@ -6,13 +6,15 @@ const localApp=new URL('../public/app.mjs',import.meta.url);
 const source=fs.readFileSync(fs.existsSync(localApp)?localApp:new URL('../../../public/ops/app.mjs',import.meta.url),'utf8');
 async function portal(data,options={}){
  const nodes=new Map();
- const node=key=>{if(!nodes.has(key))nodes.set(key,{value:'',textContent:'',innerHTML:'',hidden:false,disabled:false,classList:{toggle(){}},addEventListener(){}});return nodes.get(key)};
+ const node=key=>{if(!nodes.has(key))nodes.set(key,{value:'',textContent:'',innerHTML:'',hidden:false,disabled:false,classList:{toggle(){}},addEventListener(event,fn){this['on'+event]=fn}});return nodes.get(key)};
  const buttons=['business','traffic','inventory','account'].map(module=>({...node('button-'+module),dataset:{module}}));
+ const views=['account','creator','daily','detail'].map(view=>({...node('view-'+view),dataset:{view}}));
+ const ranges=['month','previous','latest','all'].map(range=>({...node('range-'+range),dataset:{range}}));
  const calls=[],writes=[];
  const initial=options.signedOut?null:{access_token:'unit-test-only',expires_at:4e9,user:options.user};
- const context={window:{OPS_CONFIG:{url:'https://test.invalid',anonKey:'public',siteUrl:'https://test.invalid/ops/'}},document:{querySelector:node,querySelectorAll:()=>buttons},localStorage:{getItem:()=>JSON.stringify(initial),setItem(k,v){writes.push(v)},removeItem(){}},location:{hash:'',pathname:'/ops/',search:''},history:{replaceState(){}},URLSearchParams,Intl,Map,Set,Date,Number,String,Error,JSON,console,fetch:async(url,init)=>{const u=new URL(url);calls.push({url,body:init?.body?JSON.parse(init.body):null});if(u.pathname==='/auth/v1/token')return {ok:!options.badPassword,status:options.badPassword?400:200,json:async()=>({access_token:'unit-login-session',refresh_token:'unit-refresh-only',expires_in:3600,user:{}})};const table=u.pathname.split('/').at(-1);const offset=Number(u.searchParams.get('offset')??0);return {ok:true,status:200,json:async()=>offset?[]:data[table]??[]}}};
+ const context={window:{OPS_CONFIG:{url:'https://test.invalid',anonKey:'public',siteUrl:'https://test.invalid/ops/'}},document:{querySelector:node,querySelectorAll:selector=>selector==='[data-view]'?views:selector==='[data-range]'?ranges:buttons},localStorage:{getItem:()=>JSON.stringify(initial),setItem(k,v){writes.push(v)},removeItem(){}},location:{hash:'',pathname:'/ops/',search:''},history:{replaceState(){}},URLSearchParams,Intl,Map,Set,Date,Number,String,Error,JSON,console,fetch:async(url,init)=>{const u=new URL(url);calls.push({url,body:init?.body?JSON.parse(init.body):null});if(u.pathname==='/auth/v1/token')return {ok:!options.badPassword,status:options.badPassword?400:200,json:async()=>({access_token:'unit-login-session',refresh_token:'unit-refresh-only',expires_in:3600,user:{}})};const table=u.pathname.split('/').at(-1);const offset=Number(u.searchParams.get('offset')??0);return {ok:true,status:200,json:async()=>offset?[]:data[table]??[]}}};
  await vm.runInNewContext(source,context);
- return {nodes,node,buttons,calls,writes};
+ return {nodes,node,buttons,views,ranges,calls,writes};
 }
 test('portal renders unknown amounts as a dash and escapes source shop HTML',async()=>{
  const p=await portal({ops_shops:[{shop_key:'s',shop_name:'<script>unsafe</script>',platform:'douyin'}],ops_business:[{id:'1',shop_key:'s',platform:'douyin',start_date:'2026-10-01',end_date:'2026-10-20',gross_cents:null,refund_payment_cents:null,net_cents:null,captured_at:'2026-10-21T00:00:00Z'}]});
@@ -54,4 +56,55 @@ test('invalid password keeps login visible without triggering an email',async()=
 test('expired temporary session is cleared before private business queries',async()=>{
  const p=await portal({},{user:{app_metadata:{access_expires_at:'2000-01-01T00:00:00Z'}}});
  assert.equal(p.node('#workspace').hidden,true);assert.equal(p.node('#login').hidden,false);assert.match(p.node('#login-message').textContent,/已到期/);assert.equal(p.calls.length,0);
+});
+
+test('consumption groups use weighted ROI and financial spend stays separate',async()=>{
+ const p=await portal({ops_traffic_rows:[
+  {kind:'campaigns',payload:{id:'c',name:'账户',platform:'千川',broker:'服务商甲'}},
+  {kind:'records',payload:{campaignId:'c',date:'2026-10-19',spend:100,revenue:200,netRevenue:100,douyinNumber:'001'}},
+  {kind:'records',payload:{campaignId:'c',date:'2026-10-19',spend:300,revenue:300,netRevenue:200,douyinNumber:'002'}},
+  {kind:'financeRecords',payload:{campaignId:'c',date:'2026-10-19',balanceTotalSpend:999}}
+ ]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.match(p.node('#summary').innerHTML,/400\.00/);assert.match(p.node('#summary').innerHTML,/1\.25/);assert.match(p.node('#summary').innerHTML,/0\.75/);
+ assert.ok(!p.node('#summary').innerHTML.includes('999'));assert.match(p.node('#analytics').innerHTML,/999\.00/);
+ assert.equal(p.node('#row-count').textContent,'1 条');
+ p.views.find(b=>b.dataset.view==='creator').onclick();assert.equal(p.node('#row-count').textContent,'2 条');
+ p.views.find(b=>b.dataset.view==='daily').onclick();assert.equal(p.node('#row-count').textContent,'1 条');
+ p.views.find(b=>b.dataset.view==='detail').onclick();assert.equal(p.node('#row-count').textContent,'2 条');
+});
+
+test('unknown revenue does not create a false ROI and filters apply to all consumption views',async()=>{
+ const p=await portal({ops_traffic_rows:[
+  {kind:'campaigns',payload:{id:'a',name:'甲账户',platform:'千川',broker:'甲'}},
+  {kind:'campaigns',payload:{id:'b',name:'乙账户',platform:'千川',broker:'乙'}},
+  {kind:'records',payload:{campaignId:'a',date:'2026-10-19',spend:10,revenue:null,netRevenue:null,douyinNumber:'keep-id'}},
+  {kind:'records',payload:{campaignId:'b',date:'2026-10-19',spend:20,revenue:100,netRevenue:50,douyinNumber:'excluded-id'}}
+ ]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ p.node('#traffic-broker').value='甲';p.node('#traffic-broker').onchange();
+ assert.match(p.node('#summary').innerHTML,/10\.00/);assert.match(p.node('#summary').innerHTML,/成交投产 ROI<\/span><strong>—/);
+ assert.ok(!p.node('#analytics').innerHTML.includes('乙账户'));assert.ok(!p.node('#table').innerHTML.includes('乙账户'));
+ p.views.find(b=>b.dataset.view==='detail').onclick();assert.match(p.node('#table').innerHTML,/keep-id/);assert.ok(!p.node('#table').innerHTML.includes('excluded-id'));
+});
+
+test('business coverage reports unknown amounts and latest-month shortcut finds saved data',async()=>{
+ const p=await portal({ops_shops:[{shop_key:'s',shop_name:'有记录',platform:'douyin'},{shop_key:'m',shop_name:'缺记录',platform:'douyin'}],ops_business:[{shop_key:'s',platform:'douyin',start_date:'2026-09-01',end_date:'2026-09-30',gross_cents:null,refund_payment_cents:0,net_cents:null,captured_at:'2026-10-01T00:00:00Z'}]});
+ await p.node('#refresh').onclick();p.ranges.find(b=>b.dataset.range==='latest').onclick();
+ assert.equal(p.node('#start').value,'2026-09-01');assert.equal(p.node('#end').value,'2026-09-30');
+ assert.match(p.node('#coverage').innerHTML,/1 \/ 2/);assert.match(p.node('#coverage').innerHTML,/1 个期间金额不全/);assert.match(p.node('#coverage').innerHTML,/缺记录/);
+ assert.ok(!p.node('#summary').innerHTML.includes('¥0.00</strong><small>人民币'));
+});
+
+test('pagination preserves total counts while limiting rendered consumption rows',async()=>{
+ const p=await portal({ops_traffic_rows:[{kind:'campaigns',payload:{id:'c',name:'分页账户',platform:'千川'}},...Array.from({length:40},(_,i)=>({kind:'records',payload:{id:'r'+i,campaignId:'c',date:'2026-10-19',spend:i+1,revenue:1,netRevenue:1}}))]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));p.views.find(b=>b.dataset.view==='detail').onclick();
+ assert.equal(p.node('#row-count').textContent,'40 条');
+ assert.equal((p.node('#table').innerHTML.match(/<tr>/g)||[]).length,16);
+ assert.match(p.node('#table').innerHTML,/第 1–15 条 \/ 共 40 条/);
+ p.node('#table').querySelector=()=>null;
+ p.node('#table').onclick({target:{closest:()=>({dataset:{page:'2'}})}});
+ assert.match(p.node('#table').innerHTML,/第 31–40 条 \/ 共 40 条/);
+ p.node('#search').value='不存在';p.node('#search').oninput();assert.equal(p.node('#row-count').textContent,'0 条');
+ p.node('#search').value='';p.node('#search').oninput();assert.match(p.node('#table').innerHTML,/第 1–15 条/);
 });
