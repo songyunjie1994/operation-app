@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const localApp=new URL('../public/app.mjs',import.meta.url);
-const source=fs.readFileSync(fs.existsSync(localApp)?localApp:new URL('../../../public/ops/app.mjs',import.meta.url),'utf8');
+const appFile=fs.existsSync(localApp)?localApp:new URL('../../../public/ops/app.mjs',import.meta.url);
+const source=fs.readFileSync(appFile,'utf8');
+const inventorySource=fs.readFileSync(new URL('inventory-name-map.js',appFile),'utf8')+'\n'+fs.readFileSync(new URL('inventory.js',appFile),'utf8');
 async function portal(data,options={}){
  const nodes=new Map();
  const node=key=>{if(!nodes.has(key))nodes.set(key,{value:'',textContent:'',innerHTML:'',hidden:false,disabled:false,classList:{toggle(){}},addEventListener(event,fn){this['on'+event]=fn}});return nodes.get(key)};
@@ -13,7 +15,7 @@ async function portal(data,options={}){
  const calls=[],writes=[];
  const initial=options.signedOut?null:{access_token:'unit-test-only',expires_at:4e9,user:options.user};
  const context={window:{OPS_CONFIG:{url:'https://test.invalid',anonKey:'public',siteUrl:'https://test.invalid/ops/'}},document:{querySelector:node,querySelectorAll:selector=>selector==='[data-view]'?views:selector==='[data-range]'?ranges:buttons},localStorage:{getItem:()=>JSON.stringify(initial),setItem(k,v){writes.push(v)},removeItem(){}},location:{hash:'',pathname:'/ops/',search:''},history:{replaceState(){}},URLSearchParams,Intl,Map,Set,Date,Number,String,Error,JSON,console,fetch:async(url,init)=>{const u=new URL(url);calls.push({url,body:init?.body?JSON.parse(init.body):null});if(u.pathname==='/auth/v1/token')return {ok:!options.badPassword,status:options.badPassword?400:200,json:async()=>({access_token:'unit-login-session',refresh_token:'unit-refresh-only',expires_in:3600,user:{}})};const table=u.pathname.split('/').at(-1);const offset=Number(u.searchParams.get('offset')??0);return {ok:true,status:200,json:async()=>offset?[]:data[table]??[]}}};
- await vm.runInNewContext(source,context);
+ await vm.runInNewContext(inventorySource+'\n'+source,context);
  return {nodes,node,buttons,views,ranges,calls,writes};
 }
 test('portal renders unknown amounts as a dash and escapes source shop HTML',async()=>{
@@ -24,7 +26,7 @@ test('portal renders unknown amounts as a dash and escapes source shop HTML',asy
  assert.ok(!p.node('#cards').innerHTML.includes('<script>unsafe'));
 });
 test('traffic platform filter excludes other platforms and preserves original ID text',async()=>{
- const p=await portal({ops_shops:[],ops_business:[],ops_traffic_rows:[{id:'c1',kind:'campaigns',payload:{id:'d',platform:'千川',name:'抖音投流'}},{id:'c2',kind:'campaigns',payload:{id:'k',platform:'快手',name:'快手投流'}},{id:'r1',kind:'records',payload:{id:'a',campaignId:'d',date:'2026-10-20',advertiserId:'18700000000000000001',spend:10,revenue:null}},{id:'r2',kind:'records',payload:{id:'b',campaignId:'k',date:'2026-10-20',advertiserId:'ks-original',spend:20,revenue:null}}]});
+ const p=await portal({ops_shops:[],ops_business:[],ops_traffic_current_rows:[{id:'c1',kind:'campaigns',payload:{id:'d',platform:'千川',name:'抖音投流'}},{id:'c2',kind:'campaigns',payload:{id:'k',platform:'快手',name:'快手投流'}},{id:'r1',kind:'records',payload:{id:'a',campaignId:'d',date:'2026-10-20',advertiserId:'18700000000000000001',spend:10,revenue:null}},{id:'r2',kind:'records',payload:{id:'b',campaignId:'k',date:'2026-10-20',advertiserId:'ks-original',spend:20,revenue:null}}]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';p.node('#platform').value='kuaishou';p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(resolve=>setTimeout(resolve,0));
  assert.ok(p.node('#table').innerHTML.includes('ks-original'));
  assert.ok(!p.node('#table').innerHTML.includes('18700000000000000001'));
@@ -59,7 +61,7 @@ test('expired temporary session is cleared before private business queries',asyn
 });
 
 test('consumption groups use weighted ROI and financial spend stays separate',async()=>{
- const p=await portal({ops_traffic_rows:[
+ const p=await portal({ops_traffic_current_rows:[
   {kind:'campaigns',payload:{id:'c',name:'账户',platform:'千川',broker:'服务商甲'}},
   {kind:'records',payload:{campaignId:'c',date:'2026-10-19',spend:100,revenue:200,netRevenue:100,douyinNumber:'001'}},
   {kind:'records',payload:{campaignId:'c',date:'2026-10-19',spend:300,revenue:300,netRevenue:200,douyinNumber:'002'}},
@@ -75,7 +77,7 @@ test('consumption groups use weighted ROI and financial spend stays separate',as
 });
 
 test('unknown revenue does not create a false ROI and filters apply to all consumption views',async()=>{
- const p=await portal({ops_traffic_rows:[
+ const p=await portal({ops_traffic_current_rows:[
   {kind:'campaigns',payload:{id:'a',name:'甲账户',platform:'千川',broker:'甲'}},
   {kind:'campaigns',payload:{id:'b',name:'乙账户',platform:'千川',broker:'乙'}},
   {kind:'records',payload:{campaignId:'a',date:'2026-10-19',spend:10,revenue:null,netRevenue:null,douyinNumber:'keep-id'}},
@@ -96,8 +98,23 @@ test('business coverage reports unknown amounts and latest-month shortcut finds 
  assert.ok(!p.node('#summary').innerHTML.includes('¥0.00</strong><small>人民币'));
 });
 
+test('inventory portal uses the existing product map and keeps store breakdowns searchable',async()=>{
+ const p=await portal({ops_shops:[{shop_key:'s',shop_name:'甲店',platform:'douyin'}],ops_inventory:[{shop_key:'s',captured_at:'2026-10-21T00:00:00Z',summary:{total:2,status:'success'},items:[{name:'原始胶囊',code:'BEERGO30',available:10,allocated:2,defective:1},{name:'原始片剂',code:'MBWNEW',available:20,allocated:0,defective:0}]}]});
+ p.node('#start').value='2026-10-30';p.node('#end').value='2026-10-01';
+ await p.buttons.find(b=>b.dataset.module==='inventory').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.equal(p.node('#table-title').textContent,'品名库存总览');
+ assert.equal(p.node('#row-count').textContent,'2 个品名');
+ assert.match(p.node('#table').innerHTML,/麦角/);
+ assert.match(p.node('#inventory-stores').innerHTML,/甲店/);
+ assert.equal(p.node('#inventory-stores').hidden,false);
+ p.node('#search').value='麦角';p.node('#search').oninput();
+ assert.equal(p.node('#row-count').textContent,'1 个品名');
+ assert.ok(!p.node('#table').innerHTML.includes('美白'));
+ assert.match(p.node('#summary').innerHTML,/10/);
+});
+
 test('pagination preserves total counts while limiting rendered consumption rows',async()=>{
- const p=await portal({ops_traffic_rows:[{kind:'campaigns',payload:{id:'c',name:'分页账户',platform:'千川'}},...Array.from({length:40},(_,i)=>({kind:'records',payload:{id:'r'+i,campaignId:'c',date:'2026-10-19',spend:i+1,revenue:1,netRevenue:1}}))]});
+ const p=await portal({ops_traffic_current_rows:[{kind:'campaigns',payload:{id:'c',name:'分页账户',platform:'千川'}},...Array.from({length:40},(_,i)=>({kind:'records',payload:{id:'r'+i,campaignId:'c',date:'2026-10-19',spend:i+1,revenue:1,netRevenue:1}}))]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));p.views.find(b=>b.dataset.view==='detail').onclick();
  assert.equal(p.node('#row-count').textContent,'40 条');
  assert.equal((p.node('#table').innerHTML.match(/<tr>/g)||[]).length,16);

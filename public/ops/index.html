@@ -1,8 +1,106 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>安必拓 · 运营中心</title><meta name="theme-color" content="#7042bd"><link rel="stylesheet" href="style.css?v=20261021-purple"></head>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#7546d9">
+  <title>安必拓 · 运营中心</title>
+  <link rel="stylesheet" href="style.css?v=20261021-workspace-v3">
+</head>
 <body>
-<section id="login" class="login"><div class="login-card"><div class="brand-mark">A</div><p class="eyebrow">ANBITO OPERATIONS</p><h1>运营数据，一个入口</h1><p class="muted">投流 · 经营 · 库存 · 账户</p><form id="login-form"><label for="email">账号</label><input id="email" type="text" autocomplete="username" required placeholder="admin 或管理员邮箱"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password" required placeholder="输入密码"><button id="login-button" type="submit">登录</button><button id="send-link" type="button" class="secondary">用邮箱登录链接</button></form><p id="login-message" role="status" class="muted">临时账号使用账号密码登录；管理员也可用邮箱链接登录。</p><p class="login-foot">成本系统保持独立。</p></div></section>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="icon-brand" viewBox="0 0 24 24"><path d="M4 19 10.6 5h2.8L20 19h-3.6L12 9l-4.4 10Z" fill="currentColor"/><path d="M8.5 16h7" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="icon-business" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 16v-4m4 4V8m4 8v-6"/></g></symbol>
+  <symbol id="icon-traffic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5m0 14h16M8 14l4-4 4 2 4-7m-5 0h5v5"/></g></symbol>
+  <symbol id="icon-inventory" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8m-9 5v9M7.5 5.5l9 5"/></g></symbol>
+  <symbol id="icon-account" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18m-5 6h2M7 5V3h10"/></g></symbol>
+  <symbol id="icon-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8a8 8 0 1 0 .3 7M20 3v5h-5"/></g></symbol>
+  <symbol id="icon-filter" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></g></symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></g></symbol>
+  <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="icon-logout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4m5-12 4 4-4 4M9 12h11"/></g></symbol>
+</svg>
+<section id="login" class="login">
+  <div class="login-shell">
+    <div class="login-story">
+      <div class="brand"><span class="brand-mark"><svg aria-hidden="true"><use href="#icon-brand"/></svg></span><span>安必拓<small>统一运营工作台</small></span></div>
+      <h2>每家店的经营，<br>一目了然。</h2>
+      <p>把分散的经营、投流、库存和账户数据，放在一起看。</p>
+      <div class="module-list">
+        <span><svg aria-hidden="true"><use href="#icon-business"/></svg>经营数据</span>
+        <span><svg aria-hidden="true"><use href="#icon-traffic"/></svg>投流消耗</span>
+        <span><svg aria-hidden="true"><use href="#icon-inventory"/></svg>库存数据</span>
+        <span><svg aria-hidden="true"><use href="#icon-account"/></svg>账户资金</span>
+      </div>
+      <div class="story-foot">安必拓运营中心</div>
+    </div>
+    <div class="login-card">
+      <div class="brand-mark"><svg aria-hidden="true"><use href="#icon-brand"/></svg></div>
+      <h1>登录运营工作台</h1>
+      <p class="muted">查看店铺数据，掌握经营进展。</p>
+      <form id="login-form">
+        <label for="email">账号</label>
+        <input id="email" type="text" autocomplete="username" required placeholder="admin 或管理员邮箱">
+        <label for="password">密码</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="输入密码">
+        <button id="login-button" type="submit">登录</button>
+        <button id="send-link" type="button" class="secondary">用邮箱登录链接</button>
+      </form>
+      <p id="login-message" role="status" class="muted">临时账号使用账号密码登录；管理员也可用邮箱链接登录。</p>
+      <p class="login-foot">成本系统保持独立。</p>
+    </div>
+  </div>
+</section>
 <div id="workspace" hidden>
-<aside><div class="brand"><span class="brand-mark">A</span><span>安必拓<small>OPERATIONS CENTER</small></span></div><nav aria-label="模块导航"><button data-module="business" class="active"><span class="nav-icon">▦</span>经营数据</button><button data-module="traffic"><span class="nav-icon">↗</span>投流消耗</button><button data-module="inventory"><span class="nav-icon">▤</span>库存数据</button><button data-module="account"><span class="nav-icon">◎</span>账户资金</button></nav><div class="aside-note"><span class="live-dot"></span> 统一运营工作台<br><small>数据有据，经营有数</small></div><button id="logout" class="logout">退出登录</button></aside>
-<main><header><div><p class="eyebrow">ANBITO / OPERATIONS</p><h1 id="module-title">经营数据</h1><p id="module-description" class="muted">看清每一家店的成交、退款与净成交。</p></div><button id="refresh" class="secondary">↻ 刷新数据</button></header><section class="migration-note" id="migration-note"><strong>数据来源说明</strong><span>经营按已采期间展示，空值保留“—”；投流为历史快照，数据日期见消耗页。</span></section><section class="filter-panel"><div class="filter-top"><span>筛选范围</span><div class="quick-ranges"><button data-range="month" class="range-button">本月</button><button data-range="previous" class="range-button">上月</button><button data-range="latest" class="range-button">最近有数据月份</button><button data-range="all" class="range-button">全部日期</button></div></div><div class="filters"><label>开始日期<input id="start" type="date"></label><label>结束日期<input id="end" type="date"></label><label>搜索<input id="search" type="search" placeholder="店铺 / 账户 / 抖音号 / 商品"></label><label>平台<select id="platform"><option value="">全部平台</option><option value="douyin">抖店 / 千川</option><option value="kuaishou">快手</option></select></label></div><div id="traffic-filters" class="traffic-filters" hidden><label>投流账户<select id="traffic-account"><option value="">全部账户</option></select></label><label>中介 / 服务商<select id="traffic-broker"><option value="">全部中介</option></select></label></div></section><p id="status" role="status" class="muted"></p><section id="summary" class="summary"></section><section id="coverage" class="coverage" hidden></section><section id="analytics" class="analytics" hidden></section><section class="panel"><div class="panel-title"><div><p id="table-eyebrow" class="eyebrow">DATA OVERVIEW</p><h2 id="table-title">店铺汇总</h2></div><span id="row-count" class="muted"></span></div><div id="traffic-views" class="view-tabs" hidden><button data-view="account" class="active">按账户</button><button data-view="creator">按抖音号</button><button data-view="daily">按日</button><button data-view="detail">消耗明细</button></div><div id="table"></div></section><section id="cards" class="cards"></section><p class="footnote">缺失金额显示“—”，合计仅包含已知金额。经营记录按来源期间展示，不拆分推算日数据；账户和库存展示最新快照。广告消耗与财务日结使用各自口径。</p></main>
-</div><script src="config.js"></script><script type="module" src="app.mjs?v=20261021-consumption"></script></body></html>
+  <a class="skip-link" href="#main">跳到数据内容</a>
+  <aside>
+    <div class="brand"><span class="brand-mark"><svg aria-hidden="true"><use href="#icon-brand"/></svg></span><span>安必拓<small>统一运营工作台</small></span></div>
+    <p class="nav-group">数据中心</p>
+    <nav aria-label="模块导航">
+      <button data-module="business" class="active"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-business"/></svg></span>经营数据</button>
+      <button data-module="traffic"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-traffic"/></svg></span>投流消耗</button>
+      <button data-module="inventory"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-inventory"/></svg></span>库存数据</button>
+      <button data-module="account"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-account"/></svg></span>账户资金</button>
+    </nav>
+    <div class="aside-note">四类数据，一个工作台<small>按店铺与期间查看经营</small></div>
+    <div class="aside-account"><span class="avatar" aria-hidden="true">安</span><span class="account-label">运营工作台<small>安必拓</small></span><button id="logout" class="logout" aria-label="退出登录" title="退出登录"><svg aria-hidden="true"><use href="#icon-logout"/></svg></button></div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <p class="breadcrumb"><span>运营工作台</span><svg aria-hidden="true"><use href="#icon-chevron"/></svg><span>数据中心</span></p>
+    <header>
+      <div><h1 id="module-title">经营数据</h1><p id="module-description" class="muted">看清每一家店的成交、退款与净成交。</p></div>
+      <button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button>
+    </header>
+    <details class="migration-note" id="migration-note"><summary><svg aria-hidden="true"><use href="#icon-info"/></svg>数据来源与统计口径</summary><p>经营按已采期间展示，空值保留“—”；投流为历史快照，数据日期见消耗页。广告消耗与财务日结分别统计。</p></details>
+    <section class="filter-panel" aria-label="数据筛选">
+      <div class="filter-top"><span class="filter-label"><svg aria-hidden="true"><use href="#icon-filter"/></svg>筛选范围</span><div class="quick-ranges"><button data-range="month" class="range-button">本月</button><button data-range="previous" class="range-button">上月</button><button data-range="latest" class="range-button">最近有数据月份</button><button data-range="all" class="range-button">全部日期</button></div></div>
+      <div class="filters">
+        <label>开始日期<input id="start" type="date"></label>
+        <label>结束日期<input id="end" type="date"></label>
+        <label>搜索<input id="search" type="search" placeholder="店铺 / 账户 / 抖音号 / 商品"></label>
+        <label>平台<select id="platform"><option value="">全部平台</option><option value="douyin">抖店 / 千川</option><option value="kuaishou">快手</option></select></label>
+      </div>
+      <div id="traffic-filters" class="traffic-filters" hidden><label>投流账户<select id="traffic-account"><option value="">全部账户</option></select></label><label>中介 / 服务商<select id="traffic-broker"><option value="">全部中介</option></select></label></div>
+    </section>
+    <p id="status" role="status" class="muted"></p>
+    <section id="summary" class="summary" aria-label="关键指标"></section>
+    <section id="coverage" class="coverage" hidden></section>
+    <section id="analytics" class="analytics" hidden></section>
+    <section class="panel">
+      <div class="panel-title"><div><h2 id="table-title">店铺汇总</h2></div><span id="row-count" class="muted"></span></div>
+      <div id="inventory-tools" class="stock-toolbar" hidden><span>点击品名，查看各店铺的库存分布</span><label><input id="inventory-show-zero" type="checkbox">显示全零品名</label></div>
+      <div id="traffic-views" class="view-tabs" hidden><button data-view="account" class="active">按账户</button><button data-view="creator">按抖音号</button><button data-view="daily">按日</button><button data-view="detail">消耗明细</button></div>
+      <div id="table"></div>
+    </section>
+    <section id="inventory-stores" class="inventory-stores" hidden></section>
+    <section id="cards" class="cards"></section>
+    <p class="footnote">缺失金额显示“—”，合计仅包含已知金额。经营记录按来源期间展示，不拆分推算日数据；账户和库存展示最新快照。广告消耗与财务日结使用各自口径。</p>
+  </main>
+</div>
+<script src="config.js"></script>
+<script src="inventory-name-map.js?v=20261021"></script>
+<script src="inventory.js?v=20261021-products"></script>
+<script type="module" src="app.mjs?v=20261021-workspace-v3"></script>
+</body>
+</html>
