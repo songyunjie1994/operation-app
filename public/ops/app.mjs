@@ -21,7 +21,23 @@ const latest=(items,key)=>[...items.reduce((m,r)=>{const k=key(r),old=m.get(k);i
 const latestPeriods=items=>[...items.reduce((m,r)=>{const key=[r.platform,r.shop_key,r.start_date].join('|'),old=m.get(key);if(!old||r.end_date>old.end_date||(r.end_date===old.end_date&&r.captured_at>old.captured_at))m.set(key,r);return m},new Map()).values()];
 const sum=(items,get)=>{const values=items.map(get).filter(x=>typeof x==='number'&&Number.isFinite(x));return values.length?values.reduce((a,b)=>a+b,0):null};
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
-function table(headers,items){$('#row-count').textContent=items.length+' 条';$('#table').innerHTML=items.length?`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${items.map(row=>'<tr>'+row.map(cell=>`<td>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table>`:'<div class="empty">当前筛选下没有可读取的数据。未完成首次邮箱验证或尚未加入成员时，也不会显示业务数据。</div>'}
+const PAGE_SIZE=15;let page=0;
+const pageSize=()=>window.innerWidth<=700?8:PAGE_SIZE;
+const numericHeader=/金额|消费|成交|退款|可提现|待结算|可用|锁定/;
+const optionalHeader=/采集时间|平台账户ID|抖音号|货品编码|仓库|锁定|待结算/;
+function table(headers,items){
+ $('#row-count').textContent=items.length+' 条';
+ if(!items.length){$('#table').innerHTML='<div class="empty">当前筛选下没有可读取的数据。未完成首次邮箱验证或尚未加入成员时，也不会显示业务数据。</div>';return}
+ const pages=Math.ceil(items.length/pageSize());page=Math.min(Math.max(page,0),pages-1);
+ const size=pageSize(),from=page*size,visible=items.slice(from,from+size),meta=headers.map(h=>({num:numericHeader.test(h),opt:optionalHeader.test(h)})),cls=i=>{const c=[meta[i].num?'num':'',meta[i].opt?'opt':''].filter(Boolean).join(' ');return c?' class="'+c+'"':''};
+ let numbers='';
+ if(pages>1){const span=5,first=Math.max(0,Math.min(page-2,pages-span)),last=Math.min(pages,first+span);
+  if(first>0)numbers+='<button data-page="0" aria-label="第 1 页">1</button>'+(first>1?'<span class="ellipsis">…</span>':'');
+  for(let i=first;i<last;i++)numbers+=`<button data-page="${i}"${i===page?' class="active" aria-current="page"':''}>${i+1}</button>`;
+  if(last<pages)numbers+=(last<pages-1?'<span class="ellipsis">…</span>':'')+`<button data-page="${pages-1}" aria-label="第 ${pages} 页">${pages}</button>`}
+ const pager=pages>1?`<div class="pager"><span class="range">第 ${from+1}–${from+visible.length} 条 / 共 ${items.length} 条</span><button data-page="${page-1}"${page===0?' disabled':''}>上一页</button><span class="pages">${numbers}</span><button data-page="${page+1}"${page===pages-1?' disabled':''}>下一页</button></div>`:'';
+ $('#table').innerHTML=`<div class="table-wrap"><table><thead><tr>${headers.map((h,i)=>`<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${visible.map(row=>'<tr>'+row.map((cell,i)=>`<td${cls(i)} data-label="${esc(headers[i])}"${i===1?` title="${esc(cell)}"`:''}>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`+pager;
+}
 function render(){
  const start=$('#start').value,end=$('#end').value,search=$('#search').value.trim().toLowerCase(),platform=$('#platform').value;
  const shops=new Map((cache.shops??[]).map(s=>[s.shop_key,s]));
@@ -59,16 +75,17 @@ async function load(force=false){
   if(!cache.shops||force)cache.shops=await rows('ops_shops');
   const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_rows','id,kind,payload']})[module];
   if(!cache[key]||force)cache[key]=await rows(tableName,select);
-  if(generation!==loadGeneration)return;render();$('#status').textContent='已从新运营项目读取 · '+stamp(new Date().toISOString())+' · 来源采集时间见各记录';
+  if(generation!==loadGeneration)return;render();$('#status').textContent='已从新运营项目读取 · '+stamp(new Date().toISOString());
  }catch(error){if(generation===loadGeneration)$('#status').textContent=error.message}finally{if(generation===loadGeneration)$('#refresh').disabled=false}
 }
 async function enter(){if(!session)return;$('#login').hidden=true;$('#workspace').hidden=false;await load()}
 $('#login-form').onsubmit=async e=>{e.preventDefault();$('#login-button').disabled=true;try{const username=$('#email').value.trim(),email=username.toLowerCase()==='admin'?'ops-temp-admin@anbito.invalid':username;const result=await auth('token?grant_type=password',{email,password:$('#password').value});$('#password').value='';saveSession({...result,expires_at:Date.now()/1000+result.expires_in});$('#login-message').textContent='';await enter()}catch(error){$('#login-message').textContent=error.message}finally{$('#login-button').disabled=false}};
 $('#send-link').onclick=async()=>{const email=$('#email').value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('#login-message').textContent='邮箱链接登录需要填写管理员邮箱；临时账号请填写密码后点登录';return}$('#send-link').disabled=true;try{await auth('otp?redirect_to='+encodeURIComponent(C.siteUrl),{email,create_user:true});$('#login-message').textContent='登录链接已发送，请打开邮箱中的链接完成验证。'}catch(error){$('#login-message').textContent=error.message}finally{$('#send-link').disabled=false}};
 $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true;$('#login').hidden=false};
-$('#refresh').onclick=()=>load(true);
-for(const id of ['start','end','search','platform'])$('#'+id).addEventListener(id==='search'?'input':'change',()=>render());
-for(const button of document.querySelectorAll('[data-module]')){button.classList.toggle('active',button.dataset.module===module);button.onclick=()=>{module=button.dataset.module;history.replaceState(null,'',location.pathname+'?module='+module);document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()}};
+$('#refresh').onclick=()=>{page=0;load(true)};
+$('#table').addEventListener('click',event=>{const button=event.target.closest('[data-page]');if(!button||button.disabled)return;const next=Number(button.dataset.page);if(!Number.isInteger(next))return;page=next;render();const wrap=$('#table').querySelector('.table-wrap');if(wrap)wrap.scrollTo({top:0,left:0})});
+for(const id of ['start','end','search','platform'])$('#'+id).addEventListener(id==='search'?'input':'change',()=>{page=0;render()});
+for(const button of document.querySelectorAll('[data-module]')){button.classList.toggle('active',button.dataset.module===module);button.onclick=()=>{module=button.dataset.module;page=0;history.replaceState(null,'',location.pathname+'?module='+module);document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()}};
 const fragment=new URLSearchParams(location.hash.slice(1));
 if(fragment.has('access_token')){saveSession({access_token:fragment.get('access_token'),refresh_token:fragment.get('refresh_token'),expires_at:Date.now()/1000+Number(fragment.get('expires_in')??3600)});history.replaceState(null,'',location.pathname+location.search)}else session=readSession();
 if(fragment.get('error_description'))$('#login-message').textContent='登录链接已失效，请重新发送。';
