@@ -128,7 +128,7 @@ async function load(force=false){
  const generation=++loadGeneration;$('#status').textContent='正在读取新运营项目…';$('#refresh').disabled=true;
  try{
   if(!cache.shops||force)cache.shops=await rows('ops_shops');
-  const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_rows','id,kind,payload']})[module];
+  const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_current_rows','id,kind,payload']})[module];
   if(!cache[key]||force)cache[key]=await rows(tableName,select);
   if(generation!==loadGeneration)return;render();$('#status').textContent='已从新运营项目读取 · '+stamp(new Date().toISOString())+' · 来源采集时间见各记录';
  }catch(error){if(generation===loadGeneration)$('#status').textContent=error.message}finally{if(generation===loadGeneration)$('#refresh').disabled=false}
