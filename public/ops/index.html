@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#7546d9">
   <title>安必拓 · 运营中心</title>
-  <link rel="stylesheet" href="style.css?v=20261021-workspace-v3">
+  <link rel="stylesheet" href="style.css?v=20261022-export">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -20,6 +20,7 @@
   <symbol id="icon-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></g></symbol>
   <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="icon-logout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4m5-12 4 4-4 4M9 12h11"/></g></symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14"/></g></symbol>
 </svg>
 <section id="login" class="login">
   <div class="login-shell">
@@ -70,7 +71,7 @@
     <p class="breadcrumb"><span>运营工作台</span><svg aria-hidden="true"><use href="#icon-chevron"/></svg><span>数据中心</span></p>
     <header>
       <div><h1 id="module-title">经营数据</h1><p id="module-description" class="muted">看清每一家店的成交、退款与净成交。</p></div>
-      <button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button>
+      <div class="header-actions"><button id="export" class="secondary" disabled><svg aria-hidden="true"><use href="#icon-download"/></svg>导出 Excel</button><button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button></div>
     </header>
     <details class="migration-note" id="migration-note"><summary><svg aria-hidden="true"><use href="#icon-info"/></svg>数据来源与统计口径</summary><p>经营按已采期间展示，空值保留“—”；投流为历史快照，数据日期见消耗页。广告消耗与财务日结分别统计。</p></details>
     <section class="filter-panel" aria-label="数据筛选">
@@ -101,6 +102,7 @@
 <script src="config.js"></script>
 <script src="inventory-name-map.js?v=20261021"></script>
 <script src="inventory.js?v=20261021-products"></script>
-<script type="module" src="app.mjs?v=20261022-business-net-sort"></script>
+<script src="export.js?v=20261022"></script>
+<script type="module" src="app.mjs?v=20261022-export-v2"></script>
 </body>
 </html>

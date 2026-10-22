@@ -80,11 +80,13 @@ function renderTraffic(start,end,search,platform){
  $('#table-title').textContent=({account:'账户消耗汇总',creator:'每日抖音号消耗汇总',daily:'每日消耗汇总'})[trafficView];table(headers,body);
 }
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
-const PAGE_SIZE=15;let page=0,inventoryProduct=null;
+const PAGE_SIZE=15;let page=0,inventoryProduct=null,exportState=null;
 const pageSize=()=>window.innerWidth<=700?8:PAGE_SIZE;
 const numericHeader=/金额|消费|消耗|投产|占比|成交|退款|可提现|待结算|可用|锁定/;
 const optionalHeader=/采集时间|平台账户ID|抖音号|货品编码|仓库|锁定|待结算/;
 function table(headers,items){
+ exportState={headers,rows:items,numeric:headers.map(h=>numericHeader.test(h))};
+ $('#export').disabled=!items.length;
  $('#row-count').textContent=items.length+' 条';
  if(!items.length){$('#table').innerHTML='<div class="empty">当前范围暂无记录，请调整日期或筛选条件。</div>';return}
  const pages=Math.ceil(items.length/pageSize());page=Math.min(Math.max(page,0),pages-1);
@@ -104,6 +106,7 @@ function render(){
  const name=r=>shops.get(r.shop_key)?.shop_name??'未映射店铺';
  const range=d=>d&&(!start||d>=start)&&(!end||d<=end);
  $('#cards').innerHTML='';$('#module-title').textContent=labels[module];
+ exportState=null;$('#export').disabled=true;
  $('#search').placeholder=module==='inventory'?'品名 / 店铺 / 货品编码 / 仓库':'店铺 / 账户 / 抖音号 / 商品';
  $('#module-description').textContent=({business:'看清每一家店的成交、退款与净成交。',traffic:'围绕消耗看账户、抖音号与每日投放表现。',inventory:'先按统一品名看总库存，再看各店铺的库存分布。',account:'各店铺资金一览，人民币与美元独立统计。'})[module];
  for(const id of ['traffic-filters','traffic-views','analytics'])$('#'+id).hidden=module!=='traffic';
@@ -137,6 +140,8 @@ function render(){
   $('#coverage').innerHTML='<div><strong>内置品名匹配已启用</strong><span class="coverage-pill">'+model.unmatched+' 个未匹配品名</span><span class="coverage-pill">'+model.incomplete+' 家快照不完整</span></div><p>优先按货品编码匹配，再按既有关键词规则归并；未匹配货品保留原名。'+model.hiddenProducts+' 个全零品名已隐藏，'+model.confirmedEmpty+' 家已确认空库存。缺失数量显示“—”或“已知数量 + 未知”，不补零。</p>';
   $('#table-title').textContent='品名库存总览';$('#row-count').textContent=model.groups.length+' 个品名';
   $('#table').innerHTML=stock.productTable(model,inventoryProduct);
+  exportState={headers:['品名','现货','已分配','次品','店铺数'],rows:model.groups.map(group=>[group.product.name,stock.formatTotal(group.totals.available),stock.formatTotal(group.totals.allocated),stock.formatTotal(group.totals.defective),group.shops+' 家']),numeric:[false,false,false,false,false]};
+  $('#export').disabled=!model.groups.length;
   $('#inventory-stores').innerHTML=stock.storeCards(model,inventoryProduct);
  }else{
   renderTraffic(start,end,search,platform);
@@ -156,6 +161,12 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();$('#login-button').disabl
 $('#send-link').onclick=async()=>{const email=$('#email').value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('#login-message').textContent='邮箱链接登录需要填写管理员邮箱；临时账号请填写密码后点登录';return}$('#send-link').disabled=true;try{await auth('otp?redirect_to='+encodeURIComponent(C.siteUrl),{email,create_user:true});$('#login-message').textContent='登录链接已发送，请打开邮箱中的链接完成验证。'}catch(error){$('#login-message').textContent=error.message}finally{$('#send-link').disabled=false}};
 $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true;$('#login').hidden=false};
 $('#refresh').onclick=()=>{page=0;return load(true)};
+$('#export').onclick=()=>{
+ if(!exportState?.rows.length)return;
+ const view={account:'账户汇总',creator:'抖音号汇总',daily:'每日汇总',detail:'消耗明细'}[trafficView];
+ const name=labels[module]+(module==='traffic'?'-'+view:'');
+ window.OPS_EXPORT.download(exportState.headers,exportState.rows,exportState.numeric,`${name}-${today}.xlsx`,name);
+};
 $('#table').addEventListener('click',event=>{const product=event.target.closest('[data-stock-product]');if(product?.dataset.stockProduct){const key=decodeURIComponent(product.dataset.stockProduct);inventoryProduct=inventoryProduct===key?null:key;render();$('#inventory-stores').scrollIntoView({behavior:'instant',block:'start'});return}const button=event.target.closest('[data-page]');if(!button||button.disabled)return;const next=Number(button.dataset.page);if(!Number.isInteger(next))return;page=next;render();const wrap=$('#table').querySelector('.table-wrap');if(wrap)wrap.scrollTo({top:0,left:0})});
 $('#inventory-stores').addEventListener('click',event=>{if(event.target.closest('[data-stock-clear]')){inventoryProduct=null;render()}});
 $('#inventory-show-zero').addEventListener('change',()=>{inventoryProduct=null;render()});
