@@ -126,6 +126,34 @@ test('consumption groups use weighted ROI and financial spend stays separate',as
  p.views.find(b=>b.dataset.view==='detail').onclick();assert.equal(p.node('#row-count').textContent,'2 条');
 });
 
+test('daily consumption merges a creator across accounts while preserving dates, filters and source records',async()=>{
+ const campaigns=[{id:'a',name:'甲',platform:'千川'},{id:'b',name:'乙',platform:'巨量引擎'},{id:'k',name:'快手',platform:'快手'}];
+ const records=[
+  ['a','2026-10-20','001',100,200,150],['b','2026-10-20','001',300,900,450],
+  ['a','2026-10-19','001',5,10,5],['a','2026-10-20','002',0,0,0],
+  ['a','2026-10-20','其他投放',1,2,1],['b','2026-10-20','其他投放',2,4,2],
+  ['k','2026-10-20','001',20,40,30]
+ ].map(([campaignId,date,douyinNumber,spend,revenue,netRevenue])=>({campaignId,date,douyinNumber,douyinName:'号'+douyinNumber,spend,revenue,netRevenue}));
+ const p=await portal({ops_traffic_current_rows:[...campaigns.map(payload=>({kind:'campaigns',payload})),...records.map(payload=>({kind:'records',payload}))]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.equal(p.node('#row-count').textContent,'6 条');
+ assert.match(p.node('#table').innerHTML,/2026-10-20.*data-label="整体ROI">2\.75.*data-label="整体消耗">¥400\.00.*data-label="整体成交金额">¥1,100\.00.*data-label="净ROI">1\.50.*data-label="净成交金额">¥600\.00/);
+ p.node('#traffic-account').value='a';p.node('#traffic-account').onchange();
+ assert.equal(p.node('#row-count').textContent,'4 条');assert.match(p.node('#table').innerHTML,/data-label="整体消耗">¥100\.00/);
+ assert.equal(records[0].spend,100);assert.equal(records[1].spend,300);
+});
+
+test('net ROI summary uses known card totals and explicitly discloses missing net revenue',async()=>{
+ const p=await portal({ops_traffic_current_rows:[{kind:'campaigns',payload:{id:'a',platform:'千川'}},
+  ...[{douyinNumber:'001',spend:100,revenue:500,netRevenue:300},{douyinNumber:'商城投放',spend:0.73,revenue:0,netRevenue:null}].map(r=>({kind:'records',payload:{...r,campaignId:'a',date:'2026-10-20'}}))]});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.match(p.node('#summary').innerHTML,/净ROI<\/span><strong>2\.98/);
+ assert.match(p.node('#summary').innerHTML,/1 条净成交缺失/);
+ assert.match(p.node('#table').innerHTML,/商城投放.*data-label="净ROI">—.*data-label="净成交金额">—/);
+ p.node('#search').value='商城投放';p.node('#search').oninput();
+ assert.match(p.node('#summary').innerHTML,/净ROI<\/span><strong>—/);
+});
+
 test('creator consumption separates dates and accounts and sums only the same daily identity',async()=>{
  const p=await portal({ops_traffic_current_rows:[
   {kind:'campaigns',payload:{id:'a',name:'甲账户',platform:'千川'}},

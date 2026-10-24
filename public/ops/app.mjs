@@ -26,6 +26,7 @@ const moneyCents=n=>finite(n)?money(n/100):'—';
 const businessNet=r=>finite(r.gross_cents)&&finite(r.refund_payment_cents)?r.gross_cents-r.refund_payment_cents:null;
 const addMoney=(items,get)=>{const values=items.map(get).filter(finite);return values.length?values.reduce((s,v)=>s+Math.round(v*100),0)/100:null};
 const ratio=(items,key)=>items.length&&items.every(r=>finite(r.spend)&&finite(r[key]))&&addMoney(items,r=>r.spend)>0?(addMoney(items,r=>r[key])/addMoney(items,r=>r.spend)).toFixed(2):'—';
+const dailyCreatorKey=r=>{const id=String(r.douyinNumber??'').trim();return JSON.stringify([r.date,r.campaign?.platform==='快手'?'快手':'抖音',id&&!['其他投放','商城投放'].includes(id)?['douyin',id]:['account',r.campaignId||r.advertiserId||r.id,r.douyinName||id||'未提供抖音号']])};
 function renderCoverage(data,shops,allowed,start,end){
  const expected=[...shops.values()].filter(s=>allowed({shop_key:s.shop_key}));
  const missing=expected.filter(s=>!data.some(r=>r.shop_key===s.shop_key));
@@ -59,9 +60,12 @@ function renderTraffic(start,end,search,platform){
  stats([['广告总消耗',money(spend),`${data.length} 条明细${missing?'；'+missing+' 条消耗缺失':'；按广告报表口径'}`],['成交投产 ROI',ratio(data,'revenue'),'合计成交金额 ÷ 同范围消耗；金额缺失时不计算'],['净成交投产',ratio(data,'netRevenue'),'合计净成交金额 ÷ 同范围消耗'],['消耗账户',accountCount+' 个',new Set(data.map(r=>r.date)).size+' 个有记录日期；不推定缺失日期为零']]);
  const grouped=by=>[...data.reduce((m,r)=>{const k=by(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r);return m},new Map()).entries()];
  if(trafficView==='consumption'){
-  stats([['整体ROI',ratio(data,'revenue'),'同范围总成交金额 ÷ 总消耗'],['整体消耗',money(spend),'当前筛选范围的已知金额合计'],['整体成交金额',money(addMoney(data,r=>r.revenue)),'当前筛选范围的已知金额合计'],['净ROI',ratio(data,'netRevenue'),'同范围净成交金额 ÷ 总消耗'],['净成交金额',money(addMoney(data,r=>r.netRevenue)),'当前筛选范围的已知金额合计']]);
+  const knownNet=addMoney(data,r=>r.netRevenue),netMissing=data.filter(r=>!finite(r.netRevenue)).length;
+  const knownNetRoi=finite(knownNet)&&spend>0?(knownNet/spend).toFixed(2):'—';
+  const netNote='已知净成交合计 ÷ 已知消耗合计'+(netMissing||missing?`；${netMissing} 条净成交缺失，${missing} 条消耗缺失，当前为已知金额口径`:'');
+  stats([['整体ROI',ratio(data,'revenue'),'同范围总成交金额 ÷ 总消耗'],['整体消耗',money(spend),'当前筛选范围的已知金额合计'],['整体成交金额',money(addMoney(data,r=>r.revenue)),'当前筛选范围的已知金额合计'],['净ROI',knownNetRoi,netNote],['净成交金额',money(knownNet),'当前筛选范围的已知金额合计']]);
   $('#analytics').innerHTML='';
-  const rows=grouped(r=>JSON.stringify([r.date,r.campaignId||r.advertiserId,r.douyinNumber||r.douyinName||'未提供抖音号']))
+  const rows=grouped(dailyCreatorKey)
    .sort((a,b)=>b[1][0].date.localeCompare(a[1][0].date)||(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity))
    .map(([,rs])=>[rs[0].date,rs[0].douyinName,rs[0].douyinNumber,ratio(rs,'revenue'),money(addMoney(rs,r=>r.spend)),money(addMoney(rs,r=>r.revenue)),ratio(rs,'netRevenue'),money(addMoney(rs,r=>r.netRevenue))]);
   $('#table-title').textContent='每日消耗';
