@@ -28,6 +28,7 @@ test('portal renders unknown amounts as a dash and escapes source shop HTML',asy
 test('traffic platform filter excludes other platforms and preserves original ID text',async()=>{
  const p=await portal({ops_shops:[],ops_business:[],ops_traffic_current_rows:[{id:'c1',kind:'campaigns',payload:{id:'d',platform:'千川',name:'抖音投流'}},{id:'c2',kind:'campaigns',payload:{id:'k',platform:'快手',name:'快手投流'}},{id:'r1',kind:'records',payload:{id:'a',campaignId:'d',date:'2026-10-20',advertiserId:'18700000000000000001',spend:10,revenue:null}},{id:'r2',kind:'records',payload:{id:'b',campaignId:'k',date:'2026-10-20',advertiserId:'ks-original',spend:20,revenue:null}}]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';p.node('#platform').value='kuaishou';p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(resolve=>setTimeout(resolve,0));
+ p.views.find(b=>b.dataset.view==='detail').onclick();
  assert.ok(p.node('#table').innerHTML.includes('ks-original'));
  assert.ok(!p.node('#table').innerHTML.includes('18700000000000000001'));
  p.node('#platform').value='douyin';await p.node('#refresh').onclick();
@@ -90,6 +91,9 @@ test('consumption groups use weighted ROI and financial spend stays separate',as
  ]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
  assert.match(p.node('#summary').innerHTML,/400\.00/);assert.match(p.node('#summary').innerHTML,/1\.25/);assert.match(p.node('#summary').innerHTML,/0\.75/);
+ assert.equal(p.node('#summary').hidden,true);assert.equal(p.node('#analytics').hidden,true);
+ assert.ok(!p.node('#table').innerHTML.includes('999'));assert.equal(p.node('#row-count').textContent,'2 条');
+ p.views.find(b=>b.dataset.view==='account').onclick();
  assert.ok(!p.node('#summary').innerHTML.includes('999'));assert.match(p.node('#analytics').innerHTML,/999\.00/);
  assert.equal(p.node('#row-count').textContent,'1 条');
  p.views.find(b=>b.dataset.view==='creator').onclick();assert.equal(p.node('#row-count').textContent,'2 条');

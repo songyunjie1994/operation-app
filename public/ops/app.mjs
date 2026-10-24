@@ -1,8 +1,8 @@
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
-const labels={traffic:'投流消耗',business:'经营数据',inventory:'库存数据',account:'账户资金'};
+const labels={traffic:'消耗端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
 const requestedModule=new URLSearchParams(location.search).get('module');
-let session=null,module=Object.hasOwn(labels,requestedModule)?requestedModule:'business',cache={},loadGeneration=0,trafficView='account';
+let session=null,module=Object.hasOwn(labels,requestedModule)?requestedModule:'business',cache={},loadGeneration=0,trafficView='consumption';
 const esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=(n,currency='CNY')=>typeof n==='number'&&Number.isFinite(n)?new Intl.NumberFormat('zh-CN',{style:'currency',currency,maximumFractionDigits:2}).format(n):'—';
 const stamp=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'—';
@@ -57,6 +57,14 @@ function renderTraffic(start,end,search,platform){
  const accountCount=new Set(data.map(r=>r.campaignId||r.advertiserId)).size;
  stats([['广告总消耗',money(spend),`${data.length} 条明细${missing?'；'+missing+' 条消耗缺失':'；按广告报表口径'}`],['成交投产 ROI',ratio(data,'revenue'),'合计成交金额 ÷ 同范围消耗；金额缺失时不计算'],['净成交投产',ratio(data,'netRevenue'),'合计净成交金额 ÷ 同范围消耗'],['消耗账户',accountCount+' 个',new Set(data.map(r=>r.date)).size+' 个有记录日期；不推定缺失日期为零']]);
  const grouped=by=>[...data.reduce((m,r)=>{const k=by(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r);return m},new Map()).entries()];
+ if(trafficView==='consumption'){
+  $('#analytics').innerHTML='';
+  const rows=grouped(r=>JSON.stringify([r.date,r.campaignId||r.advertiserId,r.douyinNumber||r.douyinName||'未提供抖音号']))
+   .sort((a,b)=>b[1][0].date.localeCompare(a[1][0].date)||(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity))
+   .map(([,rs])=>[rs[0].date,rs[0].douyinName,rs[0].douyinNumber,ratio(rs,'revenue'),money(addMoney(rs,r=>r.spend)),money(addMoney(rs,r=>r.revenue)),ratio(rs,'netRevenue'),money(addMoney(rs,r=>r.netRevenue))]);
+  $('#table-title').textContent='每日消耗';
+  table(['日期','达人昵称','抖音号','整体ROI','整体消耗','整体成交金额','净ROI','净成交金额'],rows);return;
+ }
  const daily=grouped(r=>r.date).sort((a,b)=>a[0].localeCompare(b[0]));
  const rank=grouped(r=>r.campaignId||r.advertiserId||'unknown').sort((a,b)=>(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity));
  const dayMax=Math.max(1,...daily.map(([,rs])=>addMoney(rs,r=>r.spend)??0));
@@ -82,7 +90,7 @@ function renderTraffic(start,end,search,platform){
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
 const PAGE_SIZE=15;let page=0,inventoryProduct=null,exportState=null;
 const pageSize=()=>window.innerWidth<=700?8:PAGE_SIZE;
-const numericHeader=/金额|消费|消耗|投产|占比|成交|退款|可提现|待结算|可用|锁定/;
+const numericHeader=/金额|消费|消耗|ROI|投产|占比|成交|退款|可提现|待结算|可用|锁定/;
 const optionalHeader=/采集时间|平台账户ID|抖音号|货品编码|仓库|锁定|待结算/;
 function table(headers,items){
  exportState={headers,rows:items,numeric:headers.map(h=>numericHeader.test(h))};
@@ -106,10 +114,13 @@ function render(){
  const name=r=>shops.get(r.shop_key)?.shop_name??'未映射店铺';
  const range=d=>d&&(!start||d>=start)&&(!end||d<=end);
  $('#cards').innerHTML='';$('#module-title').textContent=labels[module];
+ $('#main').classList.toggle('consumption-mode',module==='traffic');
+ $('#summary').hidden=module==='traffic'&&trafficView==='consumption';
  exportState=null;$('#export').disabled=true;
- $('#search').placeholder=module==='inventory'?'品名 / 店铺 / 货品编码 / 仓库':'店铺 / 账户 / 抖音号 / 商品';
- $('#module-description').textContent=({business:'看清每一家店的成交、退款与净成交。',traffic:'围绕消耗看账户、抖音号与每日投放表现。',inventory:'先按统一品名看总库存，再看各店铺的库存分布。',account:'各店铺资金一览，人民币与美元独立统计。'})[module];
+ $('#search').placeholder=module==='inventory'?'品名 / 店铺 / 货品编码 / 仓库':module==='traffic'?'搜索计划名称、达人或抖音号':'店铺 / 账户 / 抖音号 / 商品';
+ $('#module-description').textContent=({business:'看清每一家店的成交、退款与净成交。',traffic:'记录每日消耗和成交数据',inventory:'先按统一品名看总库存，再看各店铺的库存分布。',account:'各店铺资金一览，人民币与美元独立统计。'})[module];
  for(const id of ['traffic-filters','traffic-views','analytics'])$('#'+id).hidden=module!=='traffic';
+ if(module==='traffic'){$('#traffic-views').hidden=true;$('#analytics').hidden=trafficView==='consumption';}
  for(const id of ['inventory-tools','inventory-stores'])$('#'+id).hidden=module!=='inventory';
  $('#coverage').hidden=true;
  $('#start').disabled=$('#end').disabled=['account','inventory'].includes(module);
@@ -163,7 +174,7 @@ $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true
 $('#refresh').onclick=()=>{page=0;return load(true)};
 $('#export').onclick=()=>{
  if(!exportState?.rows.length)return;
- const view={account:'账户汇总',creator:'抖音号汇总',daily:'每日汇总',detail:'消耗明细'}[trafficView];
+ const view={consumption:'每日消耗',account:'账户汇总',creator:'抖音号汇总',daily:'每日汇总',detail:'消耗明细'}[trafficView];
  const name=labels[module]+(module==='traffic'?'-'+view:'');
  window.OPS_EXPORT.download(exportState.headers,exportState.rows,exportState.numeric,`${name}-${today}.xlsx`,name);
 };

@@ -335,4 +335,16 @@ main:has(#inventory-tools:not([hidden])) .filters { grid-template-columns:minmax
   .stock-store-totals strong { font-size:18px; }
   .stock-source>summary { padding:14px 16px; }
 }
+/* Consumption uses the reference's single filter row and daily creator table. */
+main.consumption-mode .filter-panel { display:grid; grid-template-columns:minmax(220px,1fr) 150px 150px 160px 170px; gap:12px; align-items:end; }
+main.consumption-mode .filter-top, main.consumption-mode .migration-note, main.consumption-mode label:has(#traffic-account) { display:none; }
+main.consumption-mode .filters, main.consumption-mode .traffic-filters { display:contents; }
+main.consumption-mode label:has(#search) { order:0; }
+main.consumption-mode label:has(#start) { order:1; }
+main.consumption-mode label:has(#end) { order:2; }
+main.consumption-mode label:has(#platform) { order:3; }
+main.consumption-mode label:has(#traffic-broker) { order:4; }
+main.consumption-mode #table th, main.consumption-mode #table td { white-space:nowrap; }
+@media(max-width:1200px) { main.consumption-mode .filter-panel { grid-template-columns:repeat(2,minmax(0,1fr)); } main.consumption-mode label:has(#search) { grid-column:1/-1; } }
+@media(max-width:480px) { main.consumption-mode .filter-panel { gap:12px 8px; } main.consumption-mode label:has(#traffic-broker) { grid-column:1/-1; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
