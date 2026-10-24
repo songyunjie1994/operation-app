@@ -27,13 +27,15 @@ test('portal renders unknown amounts as a dash and escapes source shop HTML',asy
 });
 
 test('a masked supply balance does not hide a known debt and unknown debt is never zero filled',async()=>{
- const entries=[['a',76381.86,true],['b',0,true],['c',null,false]];
+ const entries=[['a',76381.86,true],['b',0,true],['c',null,false],['d',-6.03,false]];
  const p=await portal({ops_shops:entries.map(([id])=>({shop_key:id,shop_name:'店'+id,platform:'douyin'})),ops_accounts:entries.map(([id,debt,masked])=>({id,shop_key:id,captured_at:'2026-10-24T00:00:00Z',funds:{goods:{usd:{withdrawable:0}},supply:{debt,masked}}}))});
  await p.buttons.find(b=>b.dataset.module==='account').onclick();await new Promise(r=>setTimeout(r,0));
  const html=p.node('#table').innerHTML;
- assert.match(html,/data-label="供应链欠费">¥76,381\.86/);
+ assert.match(html,/data-label="供应链欠费">-¥76,381\.86/);
  assert.match(html,/data-label="供应链欠费">¥0\.00/);
  assert.match(html,/data-label="供应链欠费">—/);
+ assert.match(html,/data-label="供应链欠费">-¥6\.03/);
+ assert.match(p.node('#summary').innerHTML,/供应链欠费合计<\/span><strong>-¥76,387\.89/);
 });
 
 test('account summary follows each money column with independent currencies and no unknown zero fill',async()=>{
@@ -43,7 +45,7 @@ test('account summary follows each money column with independent currencies and 
  ]});
  await p.buttons.find(b=>b.dataset.module==='account').onclick();await new Promise(r=>setTimeout(r,0));
  const metrics=[...p.node('#summary').innerHTML.matchAll(/<span>(.*?)<\/span><strong>(.*?)<\/strong>/g)].map(m=>[m[1],m[2]]);
- assert.deepEqual(metrics,[['账户店铺','2 家'],['人民币可提现','¥100.00'],['美元可提现','US$10.00'],['待换汇合计','¥25.00'],['待结算合计','¥30.00'],['基础保证金合计','¥40.00'],['体验保证金合计','¥45.00'],['供应链欠费合计','¥60.00']]);
+ assert.deepEqual(metrics,[['账户店铺','2 家'],['人民币可提现','¥100.00'],['美元可提现','US$10.00'],['待换汇合计','¥25.00'],['待结算合计','¥30.00'],['基础保证金合计','¥40.00'],['体验保证金合计','¥45.00'],['供应链欠费合计','-¥60.00']]);
  assert.match(p.node('#summary').innerHTML,/已知 1\/2 家/);
  p.node('#search').value='甲店';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/待换汇合计<\/span><strong>¥20\.00/);
 });

@@ -21,6 +21,7 @@ const latest=(items,key)=>[...items.reduce((m,r)=>{const k=key(r),old=m.get(k);i
 const latestPeriods=items=>[...items.reduce((m,r)=>{const key=[r.platform,r.shop_key,r.start_date].join('|'),old=m.get(key);if(!old||r.end_date>old.end_date||(r.end_date===old.end_date&&r.captured_at>old.captured_at))m.set(key,r);return m},new Map()).values()];
 const sum=(items,get)=>{const values=items.map(get).filter(x=>typeof x==='number'&&Number.isFinite(x));return values.length?values.reduce((a,b)=>a+b,0):null};
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
+const supplyDebt=r=>{const debt=r.funds?.supply?.debt;return finite(debt)?(debt===0?0:-Math.abs(debt)):null};
 const moneyCents=n=>finite(n)?money(n/100):'—';
 const businessNet=r=>finite(r.gross_cents)&&finite(r.refund_payment_cents)?r.gross_cents-r.refund_payment_cents:null;
 const addMoney=(items,get)=>{const values=items.map(get).filter(finite);return values.length?values.reduce((s,v)=>s+Math.round(v*100),0)/100:null};
@@ -91,7 +92,7 @@ function renderTraffic(start,end,search,platform){
 function stats(items){$('#summary').innerHTML=items.map(([label,value,note])=>`<div class="metric"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note??'已迁入的可验证数据')}</small></div>`).join('')}
 const PAGE_SIZE=15;let page=0,inventoryProduct=null,exportState=null;
 const pageSize=()=>window.innerWidth<=700?8:PAGE_SIZE;
-const numericHeader=/金额|消费|消耗|ROI|投产|占比|成交|退款|可提现|待结算|可用|锁定/;
+const numericHeader=/金额|消费|消耗|ROI|投产|占比|成交|退款|可提现|待结算|可用|锁定|欠费/;
 const optionalHeader=/采集时间|平台账户ID|抖音号|货品编码|仓库|锁定|待结算/;
 function table(headers,items){
  exportState={headers,rows:items,numeric:headers.map(h=>numericHeader.test(h))};
@@ -142,8 +143,8 @@ function render(){
  }else if(module==='account'){
   const data=latest(cache.accounts??[],r=>r.shop_key).filter(allowed);const total=(currency,key)=>sum(data,r=>r.funds?.goods?.[currency]?.[key]);
   const fundMetric=(label,get,currency='CNY')=>[label,money(sum(data,get),currency),`${currency==='USD'?'美元':'人民币'} · 已知 ${data.filter(r=>finite(get(r))).length}/${data.length} 家；缺失不补零`];
-  stats([['账户店铺',data.length+' 家'],fundMetric('人民币可提现',r=>r.funds?.goods?.rmb?.withdrawable),fundMetric('美元可提现',r=>r.funds?.goods?.usd?.withdrawable,'USD'),fundMetric('待换汇合计',r=>r.funds?.pending?.toExchange),fundMetric('待结算合计',r=>r.funds?.pending?.toSettle),fundMetric('基础保证金合计',r=>r.funds?.deposit?.baseBalance),fundMetric('体验保证金合计',r=>r.funds?.deposit?.expBalance),fundMetric('供应链欠费合计',r=>r.funds?.supply?.debt)]);
-  $('#table-title').textContent='账户资金快照';table(['平台','店铺','人民币可提现','美元可提现','待换汇（元）','待结算（元）','基础保证金','体验保证金','供应链欠费','采集时间'],data.map(r=>[shops.get(r.shop_key).platform==='kuaishou'?'快手':'抖店',name(r),money(r.funds?.goods?.rmb?.withdrawable),money(r.funds?.goods?.usd?.withdrawable,'USD'),money(r.funds?.pending?.toExchange),money(r.funds?.pending?.toSettle),money(r.funds?.deposit?.baseBalance),money(r.funds?.deposit?.expBalance),money(r.funds?.supply?.debt),stamp(r.captured_at)]));
+  stats([['账户店铺',data.length+' 家'],fundMetric('人民币可提现',r=>r.funds?.goods?.rmb?.withdrawable),fundMetric('美元可提现',r=>r.funds?.goods?.usd?.withdrawable,'USD'),fundMetric('待换汇合计',r=>r.funds?.pending?.toExchange),fundMetric('待结算合计',r=>r.funds?.pending?.toSettle),fundMetric('基础保证金合计',r=>r.funds?.deposit?.baseBalance),fundMetric('体验保证金合计',r=>r.funds?.deposit?.expBalance),fundMetric('供应链欠费合计',supplyDebt)]);
+  $('#table-title').textContent='账户资金快照';table(['平台','店铺','人民币可提现','美元可提现','待换汇（元）','待结算（元）','基础保证金','体验保证金','供应链欠费','采集时间'],data.map(r=>[shops.get(r.shop_key).platform==='kuaishou'?'快手':'抖店',name(r),money(r.funds?.goods?.rmb?.withdrawable),money(r.funds?.goods?.usd?.withdrawable,'USD'),money(r.funds?.pending?.toExchange),money(r.funds?.pending?.toSettle),money(r.funds?.deposit?.baseBalance),money(r.funds?.deposit?.expBalance),money(supplyDebt(r)),stamp(r.captured_at)]));
  }else if(module==='inventory'){
   const stock=window.OPS_INVENTORY;
   const model=stock.build(cache.inventory??[],shops,{platform,search,showZero:$('#inventory-show-zero').checked});
