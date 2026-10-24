@@ -25,6 +25,16 @@ test('portal renders unknown amounts as a dash and escapes source shop HTML',asy
  assert.ok(!p.node('#summary').innerHTML.includes('¥0.00'));
  assert.ok(!p.node('#cards').innerHTML.includes('<script>unsafe'));
 });
+
+test('a masked supply balance does not hide a known debt and unknown debt is never zero filled',async()=>{
+ const entries=[['a',76381.86,true],['b',0,true],['c',null,false]];
+ const p=await portal({ops_shops:entries.map(([id])=>({shop_key:id,shop_name:'店'+id,platform:'douyin'})),ops_accounts:entries.map(([id,debt,masked])=>({id,shop_key:id,captured_at:'2026-10-24T00:00:00Z',funds:{goods:{usd:{withdrawable:0}},supply:{debt,masked}}}))});
+ await p.buttons.find(b=>b.dataset.module==='account').onclick();await new Promise(r=>setTimeout(r,0));
+ const html=p.node('#table').innerHTML;
+ assert.match(html,/data-label="供应链欠费">¥76,381\.86/);
+ assert.match(html,/data-label="供应链欠费">¥0\.00/);
+ assert.match(html,/data-label="供应链欠费">—/);
+});
 test('traffic platform filter excludes other platforms and preserves original ID text',async()=>{
  const p=await portal({ops_shops:[],ops_business:[],ops_traffic_current_rows:[{id:'c1',kind:'campaigns',payload:{id:'d',platform:'千川',name:'抖音投流'}},{id:'c2',kind:'campaigns',payload:{id:'k',platform:'快手',name:'快手投流'}},{id:'r1',kind:'records',payload:{id:'a',campaignId:'d',date:'2026-10-20',advertiserId:'18700000000000000001',spend:10,revenue:null}},{id:'r2',kind:'records',payload:{id:'b',campaignId:'k',date:'2026-10-20',advertiserId:'ks-original',spend:20,revenue:null}}]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';p.node('#platform').value='kuaishou';p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(resolve=>setTimeout(resolve,0));
