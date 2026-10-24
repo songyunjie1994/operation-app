@@ -347,4 +347,9 @@ main.consumption-mode label:has(#traffic-broker) { order:4; }
 main.consumption-mode #table th, main.consumption-mode #table td { white-space:nowrap; }
 @media(max-width:1200px) { main.consumption-mode .filter-panel { grid-template-columns:repeat(2,minmax(0,1fr)); } main.consumption-mode label:has(#search) { grid-column:1/-1; } }
 @media(max-width:480px) { main.consumption-mode .filter-panel { gap:12px 8px; } main.consumption-mode label:has(#traffic-broker) { grid-column:1/-1; } }
+@media(max-width:700px) {
+  main.consumption-mode #table table { min-width:1000px; }
+  main.consumption-mode #table .opt { display:table-cell; }
+  main.consumption-mode .table-wrap::before { content:"左右滑动查看抖音号、消耗和成交金额"; display:block; padding:10px 16px; color:var(--muted); background:var(--surface); font-size:12px; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
