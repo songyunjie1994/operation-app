@@ -14,6 +14,16 @@ const shops = new Map([['a',{shop_name:'甲店',platform:'douyin'}],['b',{shop_n
 const item = (code,available,extra={}) => ({name:'原始货品 '+code,code,available,allocated:2,defective:1,warehouse:'保税仓',...extra});
 const snapshot = (shop_key,items,extra={}) => ({shop_key,captured_at:'2026-10-21T00:00:00Z',items,summary:{total:items.length,status:'success',truncated:false},...extra});
 
+test('total usable inventory adds available and allocated, excludes defective, and retains unknown parts',()=>{
+ const model=stock.build([snapshot('a',[item('BEERGO30',10,{allocated:5,defective:99})]),snapshot('b',[item('BEERGO30',20,{allocated:7,defective:88})])],shops);
+ assert.equal(model.groups[0].totals.usable.value,42);assert.equal(model.groups[0].totals.usable.missing,0);
+ assert.match(stock.productTable(model),/data-label="总可用库存">42/);
+ assert.match(stock.storeCards(model),/总可用库存/);
+ const partial=stock.totals([{available:10,allocated:null}]);assert.equal(stock.formatTotal(partial.usable),'10 + 未知');
+ assert.equal(stock.formatTotal(stock.totals([{available:null,allocated:null}]).usable),'—');
+ assert.equal(stock.formatTotal(stock.totals([{available:0,allocated:0}]).usable),'0');
+});
+
 test('existing product code map wins over keywords and known codes share a product',()=>{
   assert.equal(stock.identify({code:'MBWNEW',name:'麦角硫因'}).name,'美白');
   assert.equal(stock.identify({code:'NEW',name:'麦角硫因胶囊'}).name,'麦角');

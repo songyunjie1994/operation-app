@@ -26,7 +26,12 @@
     const known = items.map(item => item[field]).filter(finite);
     return {value: known.length ? known.reduce((sum, value) => sum + value, 0) : null, missing: items.length - known.length};
   }
-  function totals(items) { return Object.fromEntries(fields.map(field => [field, total(items, field)])); }
+  function totals(items) {
+    const result=Object.fromEntries(fields.map(field=>[field,total(items,field)]));
+    const a=result.available,b=result.allocated;
+    result.usable={value:a.value===null&&b.value===null?null:(a.value??0)+(b.value??0),missing:a.missing+b.missing};
+    return result;
+  }
   function formatTotal(result) { return qty(result.value) + (result.missing && result.value !== null ? ' + 未知' : ''); }
   function rollup(items) {
     const groups = new Map();
@@ -64,10 +69,10 @@
   }
 
   const status = product => product.matched ? '' : '<span class="stock-unmatched">未匹配</span>';
-  const cells = row => fields.map(field => '<td class="num" data-label="' + ({available:'现货',allocated:'已分配',defective:'次品'})[field] + '">' + esc(formatTotal(row.totals[field])) + '</td>').join('');
+  const cells = row => ['available','allocated','usable','defective'].map(field => '<td class="num" data-label="' + ({available:'现货',allocated:'已分配',usable:'总可用库存',defective:'次品'})[field] + '">' + esc(formatTotal(row.totals[field])) + '</td>').join('');
   function productTable(model, selectedKey) {
     if (!model.groups.length) return '<div class="empty">当前范围暂无可展示品名，可调整搜索或勾选「显示全零品名」。</div>';
-    return '<div class="table-wrap stock-table-wrap"><table aria-label="全部店铺品名库存汇总"><thead><tr><th>品名</th><th class="num">现货</th><th class="num">已分配</th><th class="num">次品</th><th class="num">店铺数</th></tr></thead><tbody>' + model.groups.map(row => '<tr' + (selectedKey === row.product.key ? ' class="stock-selected"' : '') + '><td><button class="stock-product" data-stock-product="' + esc(encodeURIComponent(row.product.key)) + '" aria-pressed="' + (selectedKey === row.product.key) + '">' + esc(row.product.name) + '</button>' + status(row.product) + '</td>' + cells(row) + '<td class="num">' + row.shops + ' 家</td></tr>').join('') + '</tbody></table></div>';
+    return '<div class="table-wrap stock-table-wrap"><table aria-label="全部店铺品名库存汇总"><thead><tr><th>品名</th><th class="num">现货</th><th class="num">已分配</th><th class="num">总可用库存</th><th class="num">次品</th><th class="num">店铺数</th></tr></thead><tbody>' + model.groups.map(row => '<tr' + (selectedKey === row.product.key ? ' class="stock-selected"' : '') + '><td><button class="stock-product" data-stock-product="' + esc(encodeURIComponent(row.product.key)) + '" aria-pressed="' + (selectedKey === row.product.key) + '">' + esc(row.product.name) + '</button>' + status(row.product) + '</td>' + cells(row) + '<td class="num">' + row.shops + ' 家</td></tr>').join('') + '</tbody></table></div>';
   }
 
   function storeCards(model, selectedKey) {
@@ -84,7 +89,7 @@
       if (!grouped.length) return '';
       const sums = totals(store.items);
       return '<details class="stock-store"' + (chosen ? ' open' : '') + '><summary><span class="stock-store-name">' + esc(store.name) + '<small>' + grouped.length + ' 个品名 · ' + esc(date(store.captured_at)) + '</small></span><span class="stock-store-totals">' + fields.map(field => '<span><small>' + ({available:'现货',allocated:'已分配',defective:'次品'})[field] + '</small><strong>' + esc(formatTotal(sums[field])) + '</strong></span>').join('') + '</span><svg class="stock-chevron" aria-hidden="true"><use href="#icon-chevron"/></svg></summary>' +
-        '<div class="table-wrap stock-table-wrap"><table aria-label="' + esc(store.name) + '品名库存"><thead><tr><th>品名</th><th class="num">现货</th><th class="num">已分配</th><th class="num">次品</th></tr></thead><tbody>' + grouped.map(row => '<tr><td>' + esc(row.product.name) + status(row.product) + '</td>' + cells(row) + '</tr>').join('') + '</tbody></table></div>' +
+        '<div class="table-wrap stock-table-wrap"><table aria-label="' + esc(store.name) + '品名库存"><thead><tr><th>品名</th><th class="num">现货</th><th class="num">已分配</th><th class="num">总可用库存</th><th class="num">次品</th></tr></thead><tbody>' + grouped.map(row => '<tr><td>' + esc(row.product.name) + status(row.product) + '</td>' + cells(row) + '</tr>').join('') + '</tbody></table></div>' +
         '<details class="stock-source"><summary>查看 ' + store.items.length + ' 条原始记录</summary><div class="table-wrap"><table><thead><tr><th>原始货品名称</th><th>货品编码</th><th>仓库</th><th class="num">现货</th><th class="num">已分配</th><th class="num">次品</th><th>品名匹配</th></tr></thead><tbody>' + store.items.map(item => '<tr><td>' + esc(item.name) + '</td><td>' + esc(item.code) + '</td><td>' + esc(item.warehouse) + '</td>' + fields.map(field => '<td class="num">' + esc(qty(item[field])) + '</td>').join('') + '<td>' + esc(item.product.method) + '</td></tr>').join('') + '</tbody></table></div></details></details>';
     }).join('');
     return '<div class="stock-section-title"><div><h2>分店铺库存' + (chosen ? ' · ' + esc(chosen.product.name) : '') + '</h2><p>展开店铺查看各品名，再展开原始记录核对编码与仓库。</p></div>' + (chosen ? '<button class="secondary" data-stock-clear>查看全部品名</button>' : '') + '</div><div class="stock-store-list">' + (content || '<div class="empty">当前范围暂无非全零的店铺库存。</div>') + '</div>';

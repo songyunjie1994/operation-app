@@ -35,6 +35,18 @@ test('a masked supply balance does not hide a known debt and unknown debt is nev
  assert.match(html,/data-label="供应链欠费">¥0\.00/);
  assert.match(html,/data-label="供应链欠费">—/);
 });
+
+test('account summary follows each money column with independent currencies and no unknown zero fill',async()=>{
+ const p=await portal({ops_shops:[{shop_key:'a',shop_name:'甲店',platform:'douyin'},{shop_key:'b',shop_name:'乙店',platform:'douyin'}],ops_accounts:[
+  {id:'a',shop_key:'a',captured_at:'2026-10-24T00:00:00Z',funds:{goods:{rmb:{withdrawable:100},usd:{withdrawable:10}},pending:{toExchange:20,toSettle:30},deposit:{baseBalance:40,expBalance:50},supply:{masked:true,debt:60}}},
+  {id:'b',shop_key:'b',captured_at:'2026-10-24T00:00:00Z',funds:{goods:{rmb:null,usd:{withdrawable:0}},pending:{toExchange:5,toSettle:null},deposit:{baseBalance:0,expBalance:-5},supply:{masked:true,debt:0}}}
+ ]});
+ await p.buttons.find(b=>b.dataset.module==='account').onclick();await new Promise(r=>setTimeout(r,0));
+ const metrics=[...p.node('#summary').innerHTML.matchAll(/<span>(.*?)<\/span><strong>(.*?)<\/strong>/g)].map(m=>[m[1],m[2]]);
+ assert.deepEqual(metrics,[['账户店铺','2 家'],['人民币可提现','¥100.00'],['美元可提现','US$10.00'],['待换汇合计','¥25.00'],['待结算合计','¥30.00'],['基础保证金合计','¥40.00'],['体验保证金合计','¥45.00'],['供应链欠费合计','¥60.00']]);
+ assert.match(p.node('#summary').innerHTML,/已知 1\/2 家/);
+ p.node('#search').value='甲店';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/待换汇合计<\/span><strong>¥20\.00/);
+});
 test('traffic platform filter excludes other platforms and preserves original ID text',async()=>{
  const p=await portal({ops_shops:[],ops_business:[],ops_traffic_current_rows:[{id:'c1',kind:'campaigns',payload:{id:'d',platform:'千川',name:'抖音投流'}},{id:'c2',kind:'campaigns',payload:{id:'k',platform:'快手',name:'快手投流'}},{id:'r1',kind:'records',payload:{id:'a',campaignId:'d',date:'2026-10-20',advertiserId:'18700000000000000001',spend:10,revenue:null}},{id:'r2',kind:'records',payload:{id:'b',campaignId:'k',date:'2026-10-20',advertiserId:'ks-original',spend:20,revenue:null}}]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';p.node('#platform').value='kuaishou';p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(resolve=>setTimeout(resolve,0));
@@ -101,7 +113,8 @@ test('consumption groups use weighted ROI and financial spend stays separate',as
  ]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
  assert.match(p.node('#summary').innerHTML,/400\.00/);assert.match(p.node('#summary').innerHTML,/1\.25/);assert.match(p.node('#summary').innerHTML,/0\.75/);
- assert.equal(p.node('#summary').hidden,true);assert.equal(p.node('#analytics').hidden,true);
+ assert.equal(p.node('#summary').hidden,false);assert.equal(p.node('#analytics').hidden,true);
+ assert.equal((p.node('#summary').innerHTML.match(/class="metric"/g)||[]).length,5);
  assert.ok(!p.node('#table').innerHTML.includes('999'));assert.equal(p.node('#row-count').textContent,'2 条');
  p.views.find(b=>b.dataset.view==='account').onclick();
  assert.ok(!p.node('#summary').innerHTML.includes('999'));assert.match(p.node('#analytics').innerHTML,/999\.00/);
@@ -144,7 +157,7 @@ test('unknown revenue does not create a false ROI and filters apply to all consu
  ]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
  p.node('#traffic-broker').value='甲';p.node('#traffic-broker').onchange();
- assert.match(p.node('#summary').innerHTML,/10\.00/);assert.match(p.node('#summary').innerHTML,/成交投产 ROI<\/span><strong>—/);
+ assert.match(p.node('#summary').innerHTML,/10\.00/);assert.match(p.node('#summary').innerHTML,/整体ROI<\/span><strong>—/);
  assert.ok(!p.node('#analytics').innerHTML.includes('乙账户'));assert.ok(!p.node('#table').innerHTML.includes('乙账户'));
  p.views.find(b=>b.dataset.view==='detail').onclick();assert.match(p.node('#table').innerHTML,/keep-id/);assert.ok(!p.node('#table').innerHTML.includes('excluded-id'));
 });

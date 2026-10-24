@@ -58,6 +58,7 @@ function renderTraffic(start,end,search,platform){
  stats([['广告总消耗',money(spend),`${data.length} 条明细${missing?'；'+missing+' 条消耗缺失':'；按广告报表口径'}`],['成交投产 ROI',ratio(data,'revenue'),'合计成交金额 ÷ 同范围消耗；金额缺失时不计算'],['净成交投产',ratio(data,'netRevenue'),'合计净成交金额 ÷ 同范围消耗'],['消耗账户',accountCount+' 个',new Set(data.map(r=>r.date)).size+' 个有记录日期；不推定缺失日期为零']]);
  const grouped=by=>[...data.reduce((m,r)=>{const k=by(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r);return m},new Map()).entries()];
  if(trafficView==='consumption'){
+  stats([['整体ROI',ratio(data,'revenue'),'同范围总成交金额 ÷ 总消耗'],['整体消耗',money(spend),'当前筛选范围的已知金额合计'],['整体成交金额',money(addMoney(data,r=>r.revenue)),'当前筛选范围的已知金额合计'],['净ROI',ratio(data,'netRevenue'),'同范围净成交金额 ÷ 总消耗'],['净成交金额',money(addMoney(data,r=>r.netRevenue)),'当前筛选范围的已知金额合计']]);
   $('#analytics').innerHTML='';
   const rows=grouped(r=>JSON.stringify([r.date,r.campaignId||r.advertiserId,r.douyinNumber||r.douyinName||'未提供抖音号']))
    .sort((a,b)=>b[1][0].date.localeCompare(a[1][0].date)||(addMoney(b[1],r=>r.spend)??-Infinity)-(addMoney(a[1],r=>r.spend)??-Infinity))
@@ -115,7 +116,7 @@ function render(){
  const range=d=>d&&(!start||d>=start)&&(!end||d<=end);
  $('#cards').innerHTML='';$('#module-title').textContent=labels[module];
  $('#main').classList.toggle('consumption-mode',module==='traffic');
- $('#summary').hidden=module==='traffic'&&trafficView==='consumption';
+ $('#summary').hidden=false;
  exportState=null;$('#export').disabled=true;
  $('#search').placeholder=module==='inventory'?'品名 / 店铺 / 货品编码 / 仓库':module==='traffic'?'搜索计划名称、达人或抖音号':'店铺 / 账户 / 抖音号 / 商品';
  $('#module-description').textContent=({business:'看清每一家店的成交、退款与净成交。',traffic:'记录每日消耗和成交数据',inventory:'先按统一品名看总库存，再看各店铺的库存分布。',account:'各店铺资金一览，人民币与美元独立统计。'})[module];
@@ -140,7 +141,8 @@ function render(){
   $('#cards').innerHTML=data.map(r=>`<article class="shop-card"><h3>${badge(r.platform)}${esc(name(r))}</h3><dl><div><dt>成交金额</dt><dd>${esc(moneyCents(r.gross_cents))}</dd></div><div><dt>${r.platform==='kuaishou'?'退款金额（支付日）':'退款金额（支付时间）'}</dt><dd>${esc(moneyCents(r.refund_payment_cents))}</dd></div><div><dt>净成交金额</dt><dd>${esc(moneyCents(businessNet(r)))}</dd></div></dl><footer>${esc(r.start_date)} — ${esc(r.end_date)}<br>请求截至：${esc(r.requested_end_date??r.end_date)}<br>采集：${esc(stamp(r.captured_at))}</footer></article>`).join('');
  }else if(module==='account'){
   const data=latest(cache.accounts??[],r=>r.shop_key).filter(allowed);const total=(currency,key)=>sum(data,r=>r.funds?.goods?.[currency]?.[key]);
-  const depositSum=sum(data,r=>{const d=r.funds?.deposit;const a=d?.baseBalance,b=d?.expBalance;return typeof a==='number'&&typeof b==='number'?a+b:(typeof a==='number'?a:(typeof b==='number'?b:null))});stats([['账户店铺',data.length+' 家'],['人民币可提现',money(total('rmb','withdrawable')),'人民币独立统计'],['美元可提现',money(total('usd','withdrawable'),'USD'),'美元独立统计'],['待结算合计',money(sum(data,r=>r.funds?.pending?.toSettle)),'人民币'],['保证金合计',money(depositSum),'基础+体验'],['未知来源字段',data.reduce((n,r)=>n+['usd','rmb'].filter(c=>!r.funds.goods[c]).length,0)+' 项','缺失不作为0参与统计']]);
+  const fundMetric=(label,get,currency='CNY')=>[label,money(sum(data,get),currency),`${currency==='USD'?'美元':'人民币'} · 已知 ${data.filter(r=>finite(get(r))).length}/${data.length} 家；缺失不补零`];
+  stats([['账户店铺',data.length+' 家'],fundMetric('人民币可提现',r=>r.funds?.goods?.rmb?.withdrawable),fundMetric('美元可提现',r=>r.funds?.goods?.usd?.withdrawable,'USD'),fundMetric('待换汇合计',r=>r.funds?.pending?.toExchange),fundMetric('待结算合计',r=>r.funds?.pending?.toSettle),fundMetric('基础保证金合计',r=>r.funds?.deposit?.baseBalance),fundMetric('体验保证金合计',r=>r.funds?.deposit?.expBalance),fundMetric('供应链欠费合计',r=>r.funds?.supply?.debt)]);
   $('#table-title').textContent='账户资金快照';table(['平台','店铺','人民币可提现','美元可提现','待换汇（元）','待结算（元）','基础保证金','体验保证金','供应链欠费','采集时间'],data.map(r=>[shops.get(r.shop_key).platform==='kuaishou'?'快手':'抖店',name(r),money(r.funds?.goods?.rmb?.withdrawable),money(r.funds?.goods?.usd?.withdrawable,'USD'),money(r.funds?.pending?.toExchange),money(r.funds?.pending?.toSettle),money(r.funds?.deposit?.baseBalance),money(r.funds?.deposit?.expBalance),money(r.funds?.supply?.debt),stamp(r.captured_at)]));
  }else if(module==='inventory'){
   const stock=window.OPS_INVENTORY;
@@ -151,7 +153,7 @@ function render(){
   $('#coverage').innerHTML='<div><strong>内置品名匹配已启用</strong><span class="coverage-pill">'+model.unmatched+' 个未匹配品名</span><span class="coverage-pill">'+model.incomplete+' 家快照不完整</span></div><p>优先按货品编码匹配，再按既有关键词规则归并；未匹配货品保留原名。'+model.hiddenProducts+' 个全零品名已隐藏，'+model.confirmedEmpty+' 家已确认空库存。缺失数量显示“—”或“已知数量 + 未知”，不补零。</p>';
   $('#table-title').textContent='品名库存总览';$('#row-count').textContent=model.groups.length+' 个品名';
   $('#table').innerHTML=stock.productTable(model,inventoryProduct);
-  exportState={headers:['品名','现货','已分配','次品','店铺数'],rows:model.groups.map(group=>[group.product.name,stock.formatTotal(group.totals.available),stock.formatTotal(group.totals.allocated),stock.formatTotal(group.totals.defective),group.shops+' 家']),numeric:[false,false,false,false,false]};
+  exportState={headers:['品名','现货','已分配','总可用库存','次品','店铺数'],rows:model.groups.map(group=>[group.product.name,stock.formatTotal(group.totals.available),stock.formatTotal(group.totals.allocated),stock.formatTotal(group.totals.usable),stock.formatTotal(group.totals.defective),group.shops+' 家']),numeric:[false,false,false,false,false,false]};
   $('#export').disabled=!model.groups.length;
   $('#inventory-stores').innerHTML=stock.storeCards(model,inventoryProduct);
  }else{
