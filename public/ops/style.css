@@ -28,6 +28,8 @@ button[hidden], div[hidden], section[hidden], #workspace[hidden] { display: none
 svg { display: block; flex-shrink: 0; width: 20px; height: 20px; }
 .secondary { color: #424859; border-color: var(--control-border); background: var(--surface); font-weight: 500; }
 .secondary:hover { border-color: #a999c2; background: #faf8ff; color: var(--primary-ink); }
+.header-actions { flex-wrap:wrap; }
+#reconcile, .recon-toolbar button { min-height:44px; }
 .muted { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .skip-link { position: fixed; z-index: 100; top: -80px; left: 16px; padding: 12px; background: white; color: var(--primary-ink); }
 .skip-link:focus { top: 12px; }

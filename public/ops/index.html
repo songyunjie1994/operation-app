@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#7546d9">
   <title>安必拓 · 运营中心</title>
-  <link rel="stylesheet" href="style.css?v=20261024-consumption">
+  <link rel="stylesheet" href="style.css?v=20261025-reconciliation">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -71,7 +71,7 @@
     <p class="breadcrumb"><span>运营工作台</span><svg aria-hidden="true"><use href="#icon-chevron"/></svg><span>数据中心</span></p>
     <header>
       <div><h1 id="module-title">经营数据</h1><p id="module-description" class="muted">看清每一家店的成交、退款与净成交。</p></div>
-      <div class="header-actions"><button id="export" class="secondary" disabled><svg aria-hidden="true"><use href="#icon-download"/></svg>导出 Excel</button><button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button></div>
+      <div class="header-actions"><button id="reconcile" hidden><svg aria-hidden="true"><use href="#icon-traffic"/></svg>生成实时对账报告</button><button id="export" class="secondary" disabled><svg aria-hidden="true"><use href="#icon-download"/></svg>导出 Excel</button><button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button></div>
     </header>
     <details class="migration-note" id="migration-note"><summary><svg aria-hidden="true"><use href="#icon-info"/></svg>数据来源与统计口径</summary><p>经营按已采期间展示，空值保留“—”；投流为历史快照，数据日期见消耗页。广告消耗与财务日结分别统计。</p></details>
     <section class="filter-panel" aria-label="数据筛选">
@@ -99,10 +99,14 @@
     <p class="footnote">缺失金额显示“—”，合计仅包含已知金额。经营记录按来源期间展示，不拆分推算日数据；账户和库存展示最新快照。广告消耗与财务日结使用各自口径。</p>
   </main>
 </div>
+<dialog id="reconciliation-dialog" class="recon-dialog" aria-labelledby="reconciliation-title">
+  <div class="recon-toolbar"><strong id="reconciliation-title">实时对账报告</strong><div><button id="reconciliation-save" class="secondary" disabled>下载报告</button><button id="reconciliation-print" class="secondary" disabled>打印 / PDF</button><button id="reconciliation-close" class="secondary" aria-label="关闭实时对账报告">关闭</button></div></div>
+  <div id="reconciliation-body" class="recon-body" aria-live="polite"></div>
+</dialog>
 <script src="config.js"></script>
 <script src="inventory-name-map.js?v=20261021"></script>
 <script src="inventory.js?v=20261024-usable"></script>
 <script src="export.js?v=20261022"></script>
-<script type="module" src="app.mjs?v=20261024-daily-creator-merge-net-roi"></script>
+<script type="module" src="app.mjs?v=20261025-live-reconciliation"></script>
 </body>
 </html>

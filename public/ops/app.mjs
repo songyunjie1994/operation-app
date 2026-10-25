@@ -1,3 +1,5 @@
+import {buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261025-live-reconciliation';
+const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
 const labels={traffic:'消耗端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
@@ -121,6 +123,7 @@ function render(){
  const range=d=>d&&(!start||d>=start)&&(!end||d<=end);
  $('#cards').innerHTML='';$('#module-title').textContent=labels[module];
  $('#main').classList.toggle('consumption-mode',module==='traffic');
+ $('#reconcile').hidden=module!=='traffic';
  $('#summary').hidden=false;
  exportState=null;$('#export').disabled=true;
  $('#search').placeholder=module==='inventory'?'品名 / 店铺 / 货品编码 / 仓库':module==='traffic'?'搜索计划名称、达人或抖音号':'店铺 / 账户 / 抖音号 / 商品';
@@ -179,6 +182,40 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();$('#login-button').disabl
 $('#send-link').onclick=async()=>{const email=$('#email').value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('#login-message').textContent='邮箱链接登录需要填写管理员邮箱；临时账号请填写密码后点登录';return}$('#send-link').disabled=true;try{await auth('otp?redirect_to='+encodeURIComponent(C.siteUrl),{email,create_user:true});$('#login-message').textContent='登录链接已发送，请打开邮箱中的链接完成验证。'}catch(error){$('#login-message').textContent=error.message}finally{$('#send-link').disabled=false}};
 $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true;$('#login').hidden=false};
 $('#refresh').onclick=()=>{page=0;return load(true)};
+let reconciliationModel=null,reconciliationBusy=false,reconciliationGeneration=0;
+async function trafficVersion(){
+ await ensureSession();
+ const r=await fetch(C.url+'/rest/v1/ops_traffic_current_rows?select=id,updated_at&order=updated_at.desc,id.asc&limit=1',{headers:{apikey:C.anonKey,Authorization:'Bearer '+session.access_token,Prefer:'count=exact'},cache:'no-store'});
+ if(!r.ok)throw Error(r.status===401?'登录已过期，请重新登录':'无法确认最新数据版本，请稍后重试');
+ const count=r.headers.get('content-range')?.match(/\/(\d+)$/),data=await r.json();
+ if(!count)throw Error('未能确认数据完整数量，本次未生成报告');
+ return {updatedAt:data[0]?.updated_at||null,rows:Number(count[1])};
+}
+$('#reconcile').onclick=async()=>{
+ if(reconciliationBusy||module!=='traffic')return;
+ const options={start:$('#start').value||today.slice(0,7)+'-01',end:$('#end').value||today,platform:$('#platform').value,broker:$('#traffic-broker').value,account:$('#traffic-account').value,search:$('#search').value};
+ const generation=++reconciliationGeneration;
+ reconciliationBusy=true;reconciliationModel=null;$('#reconcile').disabled=true;$('#reconciliation-save').disabled=$('#reconciliation-print').disabled=true;
+ $('#reconciliation-body').setAttribute('aria-busy','true');$('#reconciliation-body').innerHTML='<p role="status">正在读取最新消耗、财务日结、充值与钱包数据，并核验读取前后版本…</p>';
+ $('#reconciliation-dialog').showModal();
+ try{
+  const snapshot=await consistentSnapshot(trafficVersion,()=>rows('ops_traffic_current_rows','id,kind,payload'));
+  if(generation!==reconciliationGeneration)return;
+  if(snapshot.rows.length!==snapshot.version.rows)throw Error('数据条数与版本不一致，本次未生成报告，请重试');
+  const model=buildReconciliation(snapshot.rows,{...options,generatedAt:new Date().toISOString(),fetchedAt:snapshot.fetchedAt,version:snapshot.version});
+  cache.traffic=snapshot.rows;render();reconciliationModel=model;
+  $('#reconciliation-body').innerHTML=renderReconciliation(model);$('#reconciliation-save').disabled=$('#reconciliation-print').disabled=false;
+ }catch(error){if(generation===reconciliationGeneration)$('#reconciliation-body').innerHTML='<p role="alert">报告未生成：'+esc(error.message)+'。可关闭后重新生成；未使用上次报告代替。</p>'}
+ finally{reconciliationBusy=false;$('#reconcile').disabled=false;$('#reconciliation-body').setAttribute('aria-busy','false')}
+};
+$('#reconciliation-close').onclick=()=>$('#reconciliation-dialog').close();
+$('#reconciliation-dialog').addEventListener('close',()=>{reconciliationGeneration++;$('#reconcile').focus()});
+$('#reconciliation-save').onclick=()=>{
+ if(!reconciliationModel)return;
+ const blob=new Blob([reportDocument(reconciliationModel)],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='投流实时对账报告-'+reconciliationModel.start+'-'+reconciliationModel.end+'-'+reconciliationModel.generatedAt.replace(/[:.]/g,'-')+'.html';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+};
+$('#reconciliation-print').onclick=()=>{if(reconciliationModel)window.print()};
 $('#export').onclick=()=>{
  if(!exportState?.rows.length)return;
  const view={consumption:'每日消耗',account:'账户汇总',creator:'抖音号汇总',daily:'每日汇总',detail:'消耗明细'}[trafficView];
