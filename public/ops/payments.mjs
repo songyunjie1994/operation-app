@@ -1,4 +1,4 @@
-import {providerName} from './reconciliation-summary.mjs?v=20261026-shared-zero';
+import {providerName} from './reconciliation-summary.mjs?v=20261026-arrival8700';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 const same=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
@@ -49,4 +49,5 @@ export function createPayments({root,status,config,getSession,ensureSession,isAc
   }catch(e){message.textContent=e.message;}finally{busy=false;if(button.isConnected)button.disabled=false;}}
  return {async show(){notify('正在从新库读取付款记录…');try{const s=await snapshot();data=s.data;canWrite=s.canWrite;render();notify('已从新库读取 '+data.recharges.filter(r=>r.recordType==='payment').length+' 笔付款记录。');}catch(e){root.innerHTML='<p role="alert">'+esc(e.message)+'。未显示旧库缓存。</p>';notify('付款记录读取未完成。');}}};
 }
+
 

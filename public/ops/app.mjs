@@ -1,5 +1,5 @@
-import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-shared-zero';
-import {createPayments} from './payments.mjs?v=20261026-shared-zero';
+import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-arrival8700';
+import {createPayments} from './payments.mjs?v=20261026-arrival8700';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -285,4 +285,5 @@ const fragment=new URLSearchParams(location.hash.slice(1));
 if(fragment.has('access_token')){saveSession({access_token:fragment.get('access_token'),refresh_token:fragment.get('refresh_token'),expires_at:Date.now()/1000+Number(fragment.get('expires_in')??3600)});history.replaceState(null,'',location.pathname+location.search)}else session=readSession();
 if(fragment.get('error_description'))$('#login-message').textContent='登录链接已失效，请重新发送。';
 enter();
+
 

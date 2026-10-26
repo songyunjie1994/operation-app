@@ -66,8 +66,10 @@ export function buildProviderSummary(raw,m,options,cents){
    const rate=typeof r.rebateRate==='number'?r.rebateRate:wallet?.rebate??(broker==='李杨tes'?0.03:['李杨tina','李杨赫丝'].includes(broker)?0:null);
    return typeof rate==='number'&&Number.isFinite(rate)&&rate>=0&&rate<=1?Math.round(base*(1+rate)):null;
   });
-  const principal=metric(entries.map(principalOf)),arrived=metric(projected);
+  const arrivalAdjustments=ledger.filter(r=>r.recordType==='arrival_adjustment'&&r.status==='已确认');
+  const principal=metric(entries.map(principalOf)),arrived=metric([...projected,...arrivalAdjustments.map(r=>cents(r.amount))]);
   arrived.note=arrived.value===null?'预计值缺少金额或规则':arrived.complete?'预计到账':'预计到账小计，待补齐';
+  if(arrivalAdjustments.length)arrived.note+='（含用户确认到账调整）';
   const prior=new Date(m.start+'T00:00:00Z');prior.setUTCDate(prior.getUTCDate()-1);const openingDate=prior.toISOString().slice(0,10);
   const openingSources=raw.filter(w=>w.kind==='wallets'&&providerName(w.broker)===name);
   const opening=metric(openingSources.map(w=>w.openingDate===openingDate?cents(w.openingBalance):null));
