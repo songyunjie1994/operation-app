@@ -1,4 +1,4 @@
-import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-wallet-groups';
+import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-opening-formula';
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 export const DEFAULT_TRAFFIC_START='2026-09-01';
 export function cents(value){
