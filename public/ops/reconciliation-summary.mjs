@@ -1,3 +1,4 @@
+import {groupedWallets} from './wallet-groups.mjs?v=20261026-groups';
 export const PROVIDERS=['李杨','惠和','域见未来','刘鹏鸿'];
 export function providerName(value){
  const name=String(value??'').replace(/\s/g,'').toLowerCase();
@@ -37,7 +38,10 @@ export function buildProviderSummary(raw,m,options,cents){
   const configured=raw.filter(r=>r.kind==='wallets'&&r.entityKind!=='self'&&r.entityKind!=='代理自身'&&providerName(r.broker)===name&&(r.accounts?.some(a=>cs.some(c=>String(c.advertiserId)===String(a.advertiserId)))||!options.account&&!options.platform&&!options.search&&(!options.broker||providerName(options.broker)===name)));
   for(const w of configured){const id=String(w.walletId||w.id);if(!walletMap.has(id))walletMap.set(id,{id,name:w.name,value:null,at:null});}
   for(const c of cs){const o=c.sharedWalletObservation;if(!o?.id||o.identity==='unverified'||o.conflict||cents(o.balance)===null||!dateAt(o.observedAt)||dateAt(o.observedAt)>m.end)continue;const id=String(o.id),old=walletMap.get(id);if(!old||!old.at||Date.parse(o.observedAt)>Date.parse(old.at))walletMap.set(id,{id,name:o.name||old?.name||'共享钱包',value:cents(o.balance),at:o.observedAt});}
-  const wallets=[...walletMap.values()],sharedBalance=metric(wallets.map(w=>w.value));
+  const namedGroups=name==='李杨'?groupedWallets(cs,m.end,cents):null;
+  const wallets=namedGroups?namedGroups.wallets:[...walletMap.values()],sharedBalance=metric(wallets.map(w=>w.value));
+  if(wallets.some(w=>w.conflict))sharedBalance.note='同组余额冲突，待核验';
+  else if(namedGroups)sharedBalance.note=sharedBalance.complete?'按默认钱包组去重':'已知钱包组小计，待补齐';
   if(!wallets.length&&['惠和','域见未来'].includes(name)){Object.assign(sharedBalance,{value:0,known:0,total:0,complete:true,note:'无共享钱包'});}
   else if(!wallets.length)sharedBalance.note='未登记共享钱包';
   const creditCandidates=ledger.filter(r=>(r.recordType||'recharge')==='recharge'&&r.status==='已充值'&&r.source!=='auto-balance-jump');
@@ -62,7 +66,7 @@ export function buildProviderSummary(raw,m,options,cents){
   const complete=principal.complete&&paid!==null;
   const debt={value:complete?Math.max(0,principal.value-paid):null,complete,known:complete?1:0,total:1,note:complete?'预计欠款':''};
   const pending=accounts.filter(a=>a.status!=='已核对').length;
-  return {name,accountCount:accounts.length,recharge,arrived,spend,balance,sharedBalance,debt,balances,wallets,pending,principal,estimatedEntries:entries.length};
+  return {name,accountCount:accounts.length,recharge,arrived,spend,balance,sharedBalance,debt,balances,wallets,walletAccounts:namedGroups?.rows||[],pending,principal,estimatedEntries:entries.length};
  });
  return {rows,unmappedProviders:[...new Set(m.accounts.filter(a=>!providerName(a.broker)).map(a=>a.broker))]};
 }
@@ -70,7 +74,7 @@ export function buildProviderSummary(raw,m,options,cents){
 export function renderProviderSummary(m,{esc,money,localTime,table}){
  const labels=[['recharge','充值'],['arrived','到账'],['spend','消耗'],['balance','余额'],['sharedBalance','共享钱包余额'],['debt','欠款']];
  const cell=(r,[key,label])=>{const metric=r[key];const note=metric.note||(metric.value===null?'待核验':!metric.complete?'已知金额，待补齐':'');return `<td data-label="${esc(label)}"><strong>${money(metric.value)}</strong>${note?`<small>${esc(note)}</small>`:''}</td>`;};
- const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户，按 ${r.estimatedEntries} 笔去重后的付款/充值台账预计。</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['共享钱包','余额','来源时间'],r.wallets.map(w=>[w.name,money(w.value),localTime(w.at)])):''}</section>`).join('');
+ const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户，按 ${r.estimatedEntries} 笔去重后的付款/充值台账预计。</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['钱包组编号','钱包组','余额','依据/状态','来源时间'],r.wallets.map(w=>[w.id,w.name,money(w.value),w.conflict?'余额冲突':w.basis||'已登记钱包',localTime(w.at)])):''}${r.walletAccounts?.length?table(['账户','默认钱包组','账户余额','采到的共享余额','来源','采集时间'],r.walletAccounts.map(a=>[a.accountName,a.group?.id||'未分组',money(a.accountBalance),money(a.sharedBalance),a.source,localTime(a.at)])):''}</section>`).join('');
  return `<article class="recon-document recon-simple"><div class="recon-heading"><h2>投流对账报告</h2><p>${esc(m.start)} 至 ${esc(m.end)} · ${esc(m.filters.platform)} · ${esc(m.filters.broker)}</p><p>生成时间 ${esc(localTime(m.generatedAt))} · 金额单位：元</p></div>
  <section class="recon-provider-summary" aria-label="四组投流对账汇总"><table><thead><tr><th scope="col">服务商</th>${labels.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${m.providers.rows.map(r=>`<tr><th scope="row">${esc(r.name)}</th>${labels.map(label=>cell(r,label)).join('')}</tr>`).join('')}</tbody></table></section>
  <p class="recon-simple-note">充值、到账、消耗按所选日期统计；余额显示最新已采值，共享钱包按钱包去重。缺少依据显示“—”，部分已知金额会单独标注。</p>
