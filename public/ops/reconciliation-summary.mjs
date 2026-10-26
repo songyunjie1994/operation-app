@@ -72,10 +72,12 @@ export function buildProviderSummary(raw,m,options,cents){
   if(arrivalAdjustments.length)arrived.note+='（含用户确认到账调整）';
   const prior=new Date(m.start+'T00:00:00Z');prior.setUTCDate(prior.getUTCDate()-1);const openingDate=prior.toISOString().slice(0,10);
   const openingSources=raw.filter(w=>w.kind==='wallets'&&providerName(w.broker)===name);
-  const opening=metric(openingSources.map(w=>w.openingDate===openingDate?cents(w.openingBalance):null));
+  const openingAdjustments=allLedger.filter(r=>r.recordType==='opening_adjustment'&&r.status==='已确认'&&providerName(r.broker)===name&&r.date===openingDate);
+  const opening=metric([...openingSources.map(w=>w.openingDate===openingDate?cents(w.openingBalance):null),...openingAdjustments.map(r=>cents(r.amount))]);
   if(options.account||options.platform||options.search){opening.value=null;opening.complete=false;opening.note='局部筛选无法分摊期初';}
   else opening.note=opening.value===null?'缺少'+openingDate+'期初':opening.complete?'已存'+openingDate+'期初':'已登记期初小计，待补齐';
   if(opening.value!==null&&openingSources.some(w=>w.openingDebtAdjustment))opening.note+='（已扣旧欠款）';
+  if(opening.value!==null&&openingAdjustments.length)opening.note+='（含用户期初调整）';
   const totalDeposit=metric(accounts.map(a=>a.deposit));
   totalDeposit.note='日结总存入；不含总转入，未拆现金/赠款';
   const expectedBalance=balanceFormula(opening,arrived,spend,'expected',totalDeposit);
@@ -92,8 +94,9 @@ export function buildProviderSummary(raw,m,options,cents){
 export function balanceFormula(a,b,c,kind,deposit){const values=[a,b,...(c?[c]:[]),...(deposit?[deposit]:[])];const known=values.every(x=>Number.isSafeInteger(x?.value)),complete=known&&values.every(x=>x.complete);const value=!known?null:kind==='expected'?a.value+b.value+(deposit?.value||0)-c.value:kind==='actual'?a.value+b.value:a.value-b.value;return {value,complete,known:known?values.length:0,total:values.length,note:!known?'缺少计算依据':!complete?'已知金额暂算，待补齐':kind==='difference'?'实际余额－预计余额':''};}
 export function renderProviderSummary(m,{esc,money,localTime,table}){
  const labels=[['opening','期初'],['recharge','充值'],['arrived','到账'],['totalDeposit','总存入'],['spend','消耗'],['expectedBalance','预计余额'],['balance','账户余额'],['sharedBalance','共享钱包余额'],['actualBalance','实际余额'],['debt','欠款']];
- const cell=(r,[key,label])=>{const metric=r[key];const note=metric.note||(metric.value===null?'待核验':!metric.complete?'已知金额，待补齐':'');return `<td data-label="${esc(label)}"><strong>${money(metric.value)}</strong>${note?`<small>${esc(note)}</small>`:''}</td>`;};
- const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户，按 ${r.estimatedEntries} 笔去重后的付款/充值台账预计。</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['钱包组编号','钱包组','余额','依据/状态','来源时间'],r.wallets.map(w=>[w.id,w.name,money(w.value),w.conflict?'余额冲突':w.basis||'已登记钱包',localTime(w.at)])):''}${r.walletAccounts?.length?table(['账户','默认钱包组','账户余额','采到的共享余额','来源','采集时间'],r.walletAccounts.map(a=>[a.accountName,a.group?.id||'未分组',money(a.accountBalance),money(a.sharedBalance),a.source,localTime(a.at)])):''}</section>`).join('');
+ const cell=(r,[key,label])=>`<td data-label="${esc(label)}"><strong>${money(r[key].value)}</strong></td>`;
+ const metricNotes=r=>labels.filter(([key])=>r[key].note||r[key].value===null||!r[key].complete).map(([key,label])=>label+'：'+(r[key].note||(r[key].value===null?'待核验':'已知金额，待补齐'))).join('；');
+ const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户，按 ${r.estimatedEntries} 笔去重后的付款/充值台账预计。</p><p>${esc(metricNotes(r))}</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['钱包组编号','钱包组','余额','依据/状态','来源时间'],r.wallets.map(w=>[w.id,w.name,money(w.value),w.conflict?'余额冲突':w.basis||'已登记钱包',localTime(w.at)])):''}${r.walletAccounts?.length?table(['账户','默认钱包组','账户余额','采到的共享余额','来源','采集时间'],r.walletAccounts.map(a=>[a.accountName,a.group?.id||'未分组',money(a.accountBalance),money(a.sharedBalance),a.source,localTime(a.at)])):''}</section>`).join('');
  return `<article class="recon-document recon-simple"><div class="recon-heading"><h2>投流对账报告</h2><p>${esc(m.start)} 至 ${esc(m.end)} · ${esc(m.filters.platform)} · ${esc(m.filters.broker)}</p><p>生成时间 ${esc(localTime(m.generatedAt))} · 金额单位：元</p></div>
  <section class="recon-provider-summary" aria-label="四组投流对账汇总"><table><thead><tr><th scope="col">服务商</th>${labels.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${m.providers.rows.map(r=>`<tr><th scope="row">${esc(r.name)}</th>${labels.map(label=>cell(r,label)).join('')}</tr>`).join('')}</tbody></table></section>
  <p class="recon-simple-note">充值、到账、消耗按所选日期统计；${m.settled?"按截止日日结和钱包快照对账，不使用今天余额。":"余额显示最新已采值。"}共享钱包按钱包去重。缺少依据显示“—”，部分已知金额会单独标注。</p>
