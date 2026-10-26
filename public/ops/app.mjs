@@ -1,8 +1,9 @@
 import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-estimated-arrival';
+import {loadRecharge} from './recharge.mjs?v=20261026';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
-const labels={traffic:'消耗端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
+const labels={traffic:'消耗端',recharge:'充值端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
 const requestedModule=new URLSearchParams(location.search).get('module');
 let session=null,module=Object.hasOwn(labels,requestedModule)?requestedModule:'business',cache={},loadGeneration=0,trafficView='consumption';
 const esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -117,6 +118,7 @@ function table(headers,items){
  $('#table').innerHTML=`<div class="table-wrap"><table><thead><tr>${headers.map((h,i)=>`<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${visible.map(row=>'<tr>'+row.map((cell,i)=>`<td${cls(i)} data-label="${esc(headers[i])}"${i===1?` title="${esc(cell)}"`:''}>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`+pager;
 }
 function render(){
+ $('#main').classList.remove('recharge-mode');$('#recharge-panel').hidden=true;$('#recharge-open').hidden=true;$('#export').hidden=false;
  const start=$('#start').value,end=$('#end').value,search=$('#search').value.trim().toLowerCase(),platform=$('#platform').value;
  const shops=new Map((cache.shops??[]).map(s=>[s.shop_key,s]));
  const allowed=r=>{const s=shops.get(r.shop_key);return s&&(!platform||s.platform===platform)&&(!search||s.shop_name.toLowerCase().includes(search))};
@@ -172,6 +174,7 @@ function render(){
 async function load(force=false){
  const generation=++loadGeneration;$('#status').textContent='正在读取新运营项目…';$('#refresh').disabled=true;
  try{
+  if(module==='recharge'){$('#main').classList.add('recharge-mode');$('#main').classList.remove('consumption-mode');$('#module-title').textContent='充值端';$('#module-description').textContent='管理投流充值、付款与待付款记录。';$('#recharge-panel').hidden=false;$('#recharge-open').hidden=false;$('#export').hidden=true;$('#reconcile').hidden=true;loadRecharge($('#recharge-frame'),$('#status'),{reload:force,isActive:()=>module==='recharge'});$('#status').textContent=$('#recharge-frame').dataset.status||'正在打开充值端…';return;}
   if(!cache.shops||force)cache.shops=await rows('ops_shops');
   const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_current_rows','id,kind,payload']})[module];
   if(!cache[key]||force)cache[key]=await rows(tableName,select);

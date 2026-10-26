@@ -338,6 +338,10 @@ main:has(#inventory-tools:not([hidden])) .filters { grid-template-columns:minmax
   .stock-source>summary { padding:14px 16px; }
 }
 /* Consumption uses the reference's single filter row and daily creator table. */
+.recharge-mode .filter-panel,.recharge-mode .migration-note,.recharge-mode #summary,.recharge-mode #coverage,.recharge-mode #analytics,.recharge-mode>.panel,.recharge-mode #inventory-stores,.recharge-mode #cards,.recharge-mode .footnote{display:none!important}
+#recharge-frame{display:block;width:100%;height:calc(100dvh - 200px);min-height:620px;border:1px solid var(--border);border-radius:14px;background:white}
+.recharge-open{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border:1px solid var(--control-border);border-radius:10px;text-decoration:none;color:var(--text);background:white;font-size:13px}
+@media(max-width:700px){nav{grid-template-columns:repeat(5,minmax(0,1fr))}#recharge-frame{height:80dvh;min-height:560px}}
 main.consumption-mode .filter-panel { display:grid; grid-template-columns:minmax(220px,1fr) 150px 150px 160px 170px; gap:12px; align-items:end; }
 main.consumption-mode .filter-top, main.consumption-mode .migration-note, main.consumption-mode label:has(#traffic-account) { display:none; }
 main.consumption-mode .filters, main.consumption-mode .traffic-filters { display:contents; }
