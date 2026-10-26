@@ -1,4 +1,4 @@
-import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-cnh750-v2';
+import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-yesterday-balance';
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 export const DEFAULT_TRAFFIC_START='2026-09-01';
 export function cents(value){
@@ -35,7 +35,8 @@ function financePick(rows){
 }
 export function buildReconciliation(source,options={}){
  const generatedAt=options.generatedAt||new Date().toISOString(),today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date(generatedAt));
- const end=options.end||today,start=options.start||DEFAULT_TRAFFIC_START;
+ const dayBefore=new Date(today+'T00:00:00Z');dayBefore.setUTCDate(dayBefore.getUTCDate()-1);const yesterday=dayBefore.toISOString().slice(0,10);
+ const requestedEnd=options.end||today,end=options.settled&&requestedEnd>yesterday?yesterday:requestedEnd,start=options.start||DEFAULT_TRAFFIC_START;
  if(!iso(start)||!iso(end)||start>end)throw Error('请设置有效的对账起止日期');
  const raw=source.map(r=>r.payload?{...r.payload,entityKind:r.payload.kind,kind:r.kind}:{...r});
  const campaigns=raw.filter(r=>r.kind==='campaigns'),byCampaign=new Map(campaigns.map(c=>[c.id,c]));
@@ -114,7 +115,7 @@ export function buildReconciliation(source,options={}){
  const brokers=[...group(accounts,a=>a.broker)].map(([broker,rows])=>({broker,accounts:rows.length,spend:add(rows.map(a=>a.spend)),finance:add(rows.map(a=>a.finance)),difference:add(rows.map(a=>a.difference)),balanceDifference:add(rows.map(a=>a.balanceDifference)),status:rows.some(a=>a.status==='差额')?'差额':rows.some(a=>a.status==='待核验')?'待核验':'已核对'}));
  const knownAccounts=new Set(campaigns.map(campaignKey));
  const unmapped=raw.filter(r=>['records','financeRecords'].includes(r.kind)&&inRange(r,start,end)&&!knownAccounts.has(accountKey(r))).map(r=>({id:r.id,date:r.date,kind:r.kind,advertiserId:r.advertiserId||null,reason:'未映射账户，不参与合计，待确认归属'}));
- const model={generatedAt,fetchedAt:options.fetchedAt||generatedAt,version:options.version||null,start,end,unmapped,filters:{platform:options.platform||'全部平台',broker:options.broker||'全部服务商',search:search||null},searchExpandedToAccount:!!search,
+ const model={generatedAt,fetchedAt:options.fetchedAt||generatedAt,version:options.version||null,start,end,requestedEnd,settled:!!options.settled,unmapped,filters:{platform:options.platform||'全部平台',broker:options.broker||'全部服务商',search:search||null},searchExpandedToAccount:!!search,
   accounts,daily,brokers,recharges:rechargeRows,wallets:walletRows,
   summary:{accounts:accounts.length,days:daily.length,matched:daily.filter(r=>r.status==='已核对').length,differences:daily.filter(r=>r.status==='差额').length,pending:daily.filter(r=>r.status==='待核验').length,spend:known(records.map(r=>cents(r.spend))),bankPayments:known(payments.map(r=>cents(r.amount))),rechargeCash:known(credits.filter(r=>r.source!=='auto-balance-jump').map(r=>cents(r.baseAmount))),rechargeGift:known(credits.filter(r=>r.source!=='auto-balance-jump').map(r=>cents(r.rebateAmount))),unassigned:rechargeRows.filter(r=>r.account==='未分配账户').length},
   latestAdDate:records.map(r=>r.date).sort().at(-1)||null,latestFinanceDate:finances.map(r=>r.date).sort().at(-1)||null,

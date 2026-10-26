@@ -1,5 +1,5 @@
-import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-cnh750-v2';
-import {createPayments} from './payments.mjs?v=20261026-cnh750-v2';
+import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-yesterday-balance';
+import {createPayments} from './payments.mjs?v=20261026-yesterday-balance';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -241,7 +241,7 @@ $('#reconcile').onclick=async()=>{
   const snapshot=await consistentSnapshot(trafficVersion,()=>rows('ops_traffic_current_rows','id,kind,payload'));
   if(generation!==reconciliationGeneration)return;
   if(snapshot.rows.length!==snapshot.version.rows)throw Error('数据条数与版本不一致，本次未生成报告，请重试');
-  const model=buildReconciliation(snapshot.rows,{...options,generatedAt:new Date().toISOString(),fetchedAt:snapshot.fetchedAt,version:snapshot.version});
+  const model=buildReconciliation(snapshot.rows,{...options,settled:true,generatedAt:new Date().toISOString(),fetchedAt:snapshot.fetchedAt,version:snapshot.version});
   cache.traffic=snapshot.rows;render();reconciliationModel=model;
   $('#reconciliation-body').innerHTML=renderReconciliation(model);$('#reconciliation-save').disabled=$('#reconciliation-print').disabled=false;
  }catch(error){if(generation===reconciliationGeneration)$('#reconciliation-body').innerHTML='<p role="alert">报告未生成：'+esc(error.message)+'。可关闭后重新生成；未使用上次报告代替。</p>'}
