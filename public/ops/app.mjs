@@ -1,5 +1,5 @@
 import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-estimated-arrival';
-import {createPayments} from './payments.mjs?v=20261026-newdb';
+import {createPayments} from './payments.mjs?v=20261026-receipts';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
