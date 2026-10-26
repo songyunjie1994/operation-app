@@ -370,3 +370,5 @@ main.consumption-mode #table th, main.consumption-mode #table td { white-space:n
 .daily-modal-card h3{margin:0;font-size:18px}
 .daily-modal-card header button{border:1px solid #d9d2ec;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
 .daily-modal-card td.num,.daily-modal-card th.num{text-align:right}
+
+.receipt-viewer{width:min(1000px,94vw);max-height:92dvh;overflow:auto}.receipt-images img{display:block;max-width:100%;height:auto;margin:16px auto}.receipt-viewer [role=status]{white-space:normal;color:var(--muted)}
