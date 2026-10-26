@@ -1,4 +1,4 @@
-import {buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261025-live-reconciliation';
+import {buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-six-metrics';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
