@@ -115,7 +115,41 @@ function table(headers,items){
   for(let i=first;i<last;i++)numbers+=`<button data-page="${i}"${i===page?' class="active" aria-current="page"':''}>${i+1}</button>`;
   if(last<pages)numbers+=(last<pages-1?'<span class="ellipsis">…</span>':'')+`<button data-page="${pages-1}" aria-label="第 ${pages} 页">${pages}</button>`}
  const pager=pages>1?`<div class="pager"><span class="range">第 ${from+1}–${from+visible.length} 条 / 共 ${items.length} 条</span><button data-page="${page-1}"${page===0?' disabled':''}>上一页</button><span class="pages">${numbers}</span><button data-page="${page+1}"${page===pages-1?' disabled':''}>下一页</button></div>`:'';
- $('#table').innerHTML=`<div class="table-wrap"><table><thead><tr>${headers.map((h,i)=>`<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${visible.map(row=>'<tr>'+row.map((cell,i)=>`<td${cls(i)} data-label="${esc(headers[i])}"${i===1?` title="${esc(cell)}"`:''}>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`+pager;
+ $('#table').innerHTML=`<div class="table-wrap"><table><thead><tr>${headers.map((h,i)=>`<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${visible.map(row=>'<tr'+(row.__attrs||'')+'>'+row.map((cell,i)=>`<td${cls(i)} data-label="${esc(headers[i])}"${i===1?` title="${esc(cell)}"`:''}>${esc(cell)}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`+pager;
+}
+function nextDay(date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10)}
+function dailyRows(shopKey,startDate){
+ const rows=(cache.business??[]).filter(r=>r.shop_key===shopKey&&r.start_date===startDate);
+ const byEnd=new Map();
+ for(const r of rows){const old=byEnd.get(r.end_date);if(!old||r.captured_at>old.captured_at)byEnd.set(r.end_date,r);}
+ const list=[...byEnd.values()].sort((a,b)=>a.end_date.localeCompare(b.end_date));
+ const out=[];let prev=null;
+ for(const r of list){
+  if(prev&&r.end_date<=prev.end_date){prev=r;continue;}
+  const from=prev?nextDay(prev.end_date):r.start_date;
+  if(from<=r.end_date){
+   const gross=finite(r.gross_cents)&&(!prev||finite(prev.gross_cents))?r.gross_cents-(prev?.gross_cents??0):null;
+   const refund=finite(r.refund_payment_cents)&&(!prev||finite(prev.refund_payment_cents))?r.refund_payment_cents-(prev?.refund_payment_cents??0):null;
+   out.push({date:from===r.end_date?from:from+' ~ '+r.end_date,gross,refund,net:gross!==null&&refund!==null?gross-refund:null,captured:r.captured_at});
+  }
+  prev=r;
+ }
+ return out;
+}
+function openShopDaily(shopKey,shopName,startDate){
+ const rows=dailyRows(shopKey,startDate);
+ let modal=document.getElementById('dailyModal');
+ if(!modal){
+  modal=document.createElement('div');modal.id='dailyModal';modal.className='daily-modal';modal.hidden=true;
+  modal.innerHTML='<div class="daily-modal-card" role="dialog" aria-modal="true"><header><h3></h3><button type="button" data-daily-close>关闭</button></header><div class="daily-modal-body"></div></div>';
+  document.body.append(modal);
+  modal.addEventListener('click',event=>{if(event.target===modal||event.target.closest('[data-daily-close]'))modal.hidden=true;});
+ }
+ modal.hidden=false;
+ modal.querySelector('h3').textContent=shopName+' · 每日明细';
+ const body=modal.querySelector('.daily-modal-body');
+ if(!rows.length){body.innerHTML='<p class="detail-note">该店铺在所选期间没有可拆分的每日快照。</p>';return}
+ body.innerHTML='<div class="table-wrap"><table><thead><tr><th>日期</th><th class="num">成交金额</th><th class="num">退款金额</th><th class="num">净成交金额</th><th>采集时间</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.date)+'</td><td class="num">'+esc(moneyCents(r.gross))+'</td><td class="num">'+esc(moneyCents(r.refund))+'</td><td class="num">'+esc(moneyCents(r.net))+'</td><td>'+esc(stamp(r.captured))+'</td></tr>').join('')+'</tbody></table></div><p class="detail-note">按同一期间的历史累计快照逐日相减得出；采集间隔跨天时按区间显示。缺失值保留 —，不补零。</p>';
 }
 function render(){
  $('#main').classList.remove('recharge-mode');$('#recharge-panel').hidden=true;$('#recharge-open').hidden=true;$('#export').hidden=false;
@@ -148,7 +182,7 @@ function render(){
   const scope=platform==='douyin'?'抖店':platform==='kuaishou'?'快手':'抖店 + 快手';
   const amountNote=get=>`${scope} · 已知 ${data.filter(r=>finite(get(r))).length} / ${data.length} 个期间`;
   stats([['已采店铺',new Set(data.map(r=>r.shop_key)).size+' 家','有期间记录；金额完整度见下方'],['成交金额',moneyCents(sum(data,r=>r.gross_cents)),amountNote(r=>r.gross_cents)],['退款金额',moneyCents(sum(data,r=>r.refund_payment_cents)),amountNote(r=>r.refund_payment_cents)],['净成交金额',moneyCents(sum(data,businessNet)),amountNote(businessNet)+'；成交 − 退款']]);
-  renderCoverage(data,shops,allowed,start,end);$('#table-title').textContent='各店铺经营汇总';table(['平台','店铺','期间','成交金额','退款金额','净成交金额','采集时间'],data.map(r=>[r.platform==='kuaishou'?'快手':'抖店',name(r),r.start_date+' 至 '+r.end_date,moneyCents(r.gross_cents),moneyCents(r.refund_payment_cents),moneyCents(businessNet(r)),stamp(r.captured_at)]));
+  renderCoverage(data,shops,allowed,start,end);$('#table-title').textContent='各店铺经营汇总';const businessRows=data.map(r=>{const cells=[r.platform==='kuaishou'?'快手':'抖店',name(r),r.start_date+' 至 '+r.end_date,moneyCents(r.gross_cents),moneyCents(r.refund_payment_cents),moneyCents(businessNet(r)),stamp(r.captured_at)];cells.__attrs=' data-shop-daily="'+esc(r.shop_key)+'" data-shop-name="'+esc(name(r))+'" data-shop-start="'+esc(r.start_date)+'"';return cells;});table(['平台','店铺','期间','成交金额','退款金额','净成交金额','采集时间'],businessRows);
   $('#cards').innerHTML=data.map(r=>`<article class="shop-card"><h3>${badge(r.platform)}${esc(name(r))}</h3><dl><div><dt>成交金额</dt><dd>${esc(moneyCents(r.gross_cents))}</dd></div><div><dt>${r.platform==='kuaishou'?'退款金额（支付日）':'退款金额（支付时间）'}</dt><dd>${esc(moneyCents(r.refund_payment_cents))}</dd></div><div><dt>净成交金额</dt><dd>${esc(moneyCents(businessNet(r)))}</dd></div></dl><footer>${esc(r.start_date)} — ${esc(r.end_date)}<br>请求截至：${esc(r.requested_end_date??r.end_date)}<br>采集：${esc(stamp(r.captured_at))}</footer></article>`).join('');
  }else if(module==='account'){
   const data=latest(cache.accounts??[],r=>r.shop_key).filter(allowed);const total=(currency,key)=>sum(data,r=>r.funds?.goods?.[currency]?.[key]);
@@ -226,7 +260,7 @@ $('#export').onclick=()=>{
  const name=labels[module]+(module==='traffic'?'-'+view:'');
  window.OPS_EXPORT.download(exportState.headers,exportState.rows,exportState.numeric,`${name}-${today}.xlsx`,name);
 };
-$('#table').addEventListener('click',event=>{const product=event.target.closest('[data-stock-product]');if(product?.dataset.stockProduct){const key=decodeURIComponent(product.dataset.stockProduct);inventoryProduct=inventoryProduct===key?null:key;render();$('#inventory-stores').scrollIntoView({behavior:'instant',block:'start'});return}const button=event.target.closest('[data-page]');if(!button||button.disabled)return;const next=Number(button.dataset.page);if(!Number.isInteger(next))return;page=next;render();const wrap=$('#table').querySelector('.table-wrap');if(wrap)wrap.scrollTo({top:0,left:0})});
+$('#table').addEventListener('click',event=>{const shopRow=event.target.closest('[data-shop-daily]');if(shopRow){openShopDaily(shopRow.dataset.shopDaily,shopRow.dataset.shopName,shopRow.dataset.shopStart);return}const product=event.target.closest('[data-stock-product]');if(product?.dataset.stockProduct){const key=decodeURIComponent(product.dataset.stockProduct);inventoryProduct=inventoryProduct===key?null:key;render();$('#inventory-stores').scrollIntoView({behavior:'instant',block:'start'});return}const button=event.target.closest('[data-page]');if(!button||button.disabled)return;const next=Number(button.dataset.page);if(!Number.isInteger(next))return;page=next;render();const wrap=$('#table').querySelector('.table-wrap');if(wrap)wrap.scrollTo({top:0,left:0})});
 $('#inventory-stores').addEventListener('click',event=>{if(event.target.closest('[data-stock-clear]')){inventoryProduct=null;render()}});
 $('#inventory-show-zero').addEventListener('change',()=>{inventoryProduct=null;render()});
 for(const id of ['start','end','search','platform'])$('#'+id).addEventListener(id==='search'?'input':'change',()=>{page=0;render()});
