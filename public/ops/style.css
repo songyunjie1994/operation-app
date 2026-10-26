@@ -355,3 +355,14 @@ main.consumption-mode #table th, main.consumption-mode #table td { white-space:n
   main.consumption-mode .table-wrap::before { content:"左右滑动查看抖音号、消耗和成交金额"; display:block; padding:10px 16px; color:var(--muted); background:var(--surface); font-size:12px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* 店铺每日明细 */
+#table tr[data-shop-daily]{cursor:pointer}
+#table tr[data-shop-daily]:hover{background:#f7f3ff}
+.daily-modal{position:fixed;inset:0;background:rgba(24,18,44,.45);display:flex;align-items:center;justify-content:center;z-index:1200;padding:24px}
+.daily-modal[hidden]{display:none}
+.daily-modal-card{background:#fff;border-radius:16px;max-width:880px;width:100%;max-height:82vh;overflow:auto;padding:20px 22px;box-shadow:0 24px 60px rgba(30,20,60,.25)}
+.daily-modal-card header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.daily-modal-card h3{margin:0;font-size:18px}
+.daily-modal-card header button{border:1px solid #d9d2ec;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+.daily-modal-card td.num,.daily-modal-card th.num{text-align:right}
