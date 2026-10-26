@@ -106,6 +106,15 @@ h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--text); }
 .coverage p { margin: 8px 0 0; line-height: 1.8; color: #566278; }
 .coverage summary { margin-top: 8px; min-height: 24px; }
 .coverage details p { overflow-wrap: anywhere; }
+.consumption-previews{color:#70410c;background:#fff8eb;border-color:#e7cf9a}
+.consumption-previews .preview-heading{justify-content:space-between}
+.consumption-previews p{color:#70410c}
+.consumption-previews summary{min-height:44px;padding:10px 0;line-height:1.8;overflow-wrap:anywhere}
+.preview-state{font-weight:600}
+.consumption-previews dl{display:flex;flex-wrap:wrap;gap:12px 32px;margin:8px 0}
+.consumption-previews dt{font-size:12px}
+.consumption-previews dd{margin:4px 0;font-variant-numeric:tabular-nums}
+.consumption-previews dd small{margin-left:8px}
 
 /* Tables and charts share a readable type scale. */
 .panel, .shop-card { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }

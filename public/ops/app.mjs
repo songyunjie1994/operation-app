@@ -1,5 +1,6 @@
 import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-clean-summary';
 import {createPayments} from './payments.mjs?v=20261026-clean-summary';
+import {consumptionPreviews,renderConsumptionPreviews} from './consumption-preview.mjs?v=20261027-provisional';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -58,6 +59,9 @@ function renderTraffic(start,end,search,platform){
  $('#traffic-broker').innerHTML='<option value="">全部中介</option>'+[...new Set(allCampaigns.map(c=>c.broker).filter(Boolean))].sort().map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
  $('#traffic-account').value=selected;$('#traffic-broker').value=selectedBroker;
  const {campaigns,data:filtered,matchesPlatform}=trafficRecords(platform,search);
+ const previews=consumptionPreviews([...campaigns.values()],{start,end,selected,broker:selectedBroker,search,matchesPlatform});
+ $('#consumption-previews').hidden=!previews.length;
+ $('#consumption-previews').innerHTML=renderConsumptionPreviews(previews);
  const data=filtered.filter(r=>(!start||r.date>=start)&&(!end||r.date<=end));
  const allDates=raw.filter(r=>r.kind==='records'&&r.date).map(r=>r.date).sort();
  const spend=addMoney(data,r=>r.spend),missing=data.filter(r=>!finite(r.spend)).length;
@@ -170,6 +174,7 @@ function render(){
  if(module==='traffic'){$('#traffic-views').hidden=true;$('#analytics').hidden=trafficView==='consumption';}
  for(const id of ['inventory-tools','inventory-stores'])$('#'+id).hidden=module!=='inventory';
  $('#coverage').hidden=true;
+ $('#consumption-previews').hidden=true;
  $('#start').disabled=$('#end').disabled=['account','inventory'].includes(module);
  if(!['account','inventory'].includes(module)&&start&&end&&start>end){stats([]);table([],[]);$('#status').textContent='开始日期不能晚于结束日期';$('#analytics').hidden=true;return}
 
