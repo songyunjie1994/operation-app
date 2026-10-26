@@ -15,11 +15,12 @@ export function buildProviderSummary(raw,m,options,cents){
  const selected=new Set(m.accounts.map(a=>a.id));
  const chosen=campaigns.filter(c=>selected.has(String(c.advertiserId||c.id)));
  const allLedger=raw.filter(r=>r.kind==='recharges');
+ const excludedPayments=new Set(allLedger.filter(r=>r.excludeFromRecharge===true).map(r=>r.id));
  const scopedLedger=new Set(m.recharges.map(r=>r.id));
  const rows=PROVIDERS.map(name=>{
   const accounts=m.accounts.filter(a=>providerName(a.broker)===name),cs=chosen.filter(c=>providerName(c.broker)===name);
   const fullGroup=!options.account&&!options.platform&&!options.search&&!options.broker;
-  const ledger=allLedger.filter(r=>providerName(r.broker||byId.get(r.campaignId)?.broker)===name&&between(r,m)&&(scopedLedger.has(r.id)||fullGroup));
+  const ledger=allLedger.filter(r=>!excludedPayments.has(r.id)&&!excludedPayments.has(r.sourcePaymentId)&&providerName(r.broker||byId.get(r.campaignId)?.broker)===name&&between(r,m)&&(scopedLedger.has(r.id)||fullGroup));
   const payments=ledger.filter(r=>r.recordType==='payment'&&r.status==='已付款');
   const recharge=metric(payments.map(r=>!r.amountCurrency||r.amountCurrency==='CNY'||r.amountCurrency==='RMB'?cents(r.amount):null));
   // User requested estimated arrivals; actual finance/collection data stays intact.
