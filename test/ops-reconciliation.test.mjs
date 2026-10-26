@@ -35,8 +35,9 @@ test('total deposits are not silently labelled cash or grants',()=>{
  const f=fin();delete f.columns['现金存入(元)'];delete f.columns['赠款存入(元)'];const r=buildReconciliation([campaign(),ad(),f],opts).accounts[0];assert.equal(r.deposit,5000);assert.equal(r.cash,null);assert.equal(r.giftDeposit,null);assert.match(r.warnings.join(),/不把总存入当作现金/);
 });
 test('real-time default includes today while unposted closing dates stay pending',()=>{
- const m=buildReconciliation([campaign(),ad('2026-10-24'),fin('2026-10-24')],{generatedAt:opts.generatedAt});assert.equal(m.end,'2026-10-25');assert.equal(m.accounts[0].closingDate,'2026-10-24');assert.match(m.accounts[0].warnings.join(),/不能当作实时余额/);
+ const m=buildReconciliation([campaign(),ad('2026-10-24'),fin('2026-10-24')],{generatedAt:opts.generatedAt});assert.equal(m.start,'2026-09-01');assert.equal(m.end,'2026-10-25');assert.equal(m.accounts[0].closingDate,'2026-10-24');assert.match(m.accounts[0].warnings.join(),/不能当作实时余额/);
 });
+test('September report default is fixed while explicit user dates remain respected',()=>{assert.equal(buildReconciliation([],{generatedAt:'2026-11-02T00:00:00Z'}).start,'2026-09-01');assert.equal(buildReconciliation([],{start:'2026-10-03',generatedAt:opts.generatedAt}).start,'2026-10-03');});
 test('payment and its generated recharge are separate ledgers; balance jumps are not verified cash',()=>{
  const rows=[campaign(),{kind:'recharges',id:'pay1',date:'2026-10-01',recordType:'payment',amount:100,broker:'服务商甲'},{kind:'recharges',id:'chg1',date:'2026-10-01',recordType:'recharge',amount:101,baseAmount:100,rebateAmount:1,sourcePaymentId:'pay1',source:'auto-from-payment',broker:'服务商甲'},{kind:'recharges',id:'guess',date:'2026-10-01',amount:500,baseAmount:500,source:'auto-balance-jump',broker:'服务商甲'}];
  const m=buildReconciliation(rows,opts);assert.equal(m.summary.bankPayments,10000);assert.equal(m.summary.rechargeCash,10000);assert.equal(m.summary.rechargeGift,100);assert.equal(m.summary.unassigned,3);assert.match(m.recharges[0].issues.join(),/不重复相加/);assert.match(m.recharges[2].issues.join(),/推测/);

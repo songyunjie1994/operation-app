@@ -1,4 +1,4 @@
-import {buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-six-metrics';
+import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-estimated-arrival';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -10,7 +10,8 @@ const money=(n,currency='CNY')=>typeof n==='number'&&Number.isFinite(n)?new Intl
 const stamp=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'—';
 const badge=p=>`<span class="badge ${p==='kuaishou'?'kuaishou':''}">${p==='kuaishou'?'快手':'抖店'}</span>`;
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date());
-$('#start').value=today.slice(0,7)+'-01';$('#end').value=today;
+$('#start').value=module==='traffic'?DEFAULT_TRAFFIC_START:today.slice(0,7)+'-01';$('#end').value=today;
+const moduleRanges=new Map();
 const readSession=()=>{try{return JSON.parse(localStorage.getItem('anbito-ops-session'))}catch{return null}};
 const saveSession=s=>{session=s;if(s)localStorage.setItem('anbito-ops-session',JSON.stringify(s));else localStorage.removeItem('anbito-ops-session')};
 async function auth(route,body){const r=await fetch(C.url+'/auth/v1/'+route,{method:'POST',headers:{apikey:C.anonKey,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(route.startsWith('token?grant_type=password')?'账号或密码不正确，请重新输入':'登录请求未成功，请检查邮箱或稍后重试');return r.json()}
@@ -193,7 +194,7 @@ async function trafficVersion(){
 }
 $('#reconcile').onclick=async()=>{
  if(reconciliationBusy||module!=='traffic')return;
- const options={start:$('#start').value||today.slice(0,7)+'-01',end:$('#end').value||today,platform:$('#platform').value,broker:$('#traffic-broker').value,account:$('#traffic-account').value,search:$('#search').value};
+ const options={start:$('#start').value||DEFAULT_TRAFFIC_START,end:$('#end').value||today,platform:$('#platform').value,broker:$('#traffic-broker').value,account:$('#traffic-account').value,search:$('#search').value};
  const generation=++reconciliationGeneration;
  reconciliationBusy=true;reconciliationModel=null;$('#reconcile').disabled=true;$('#reconciliation-save').disabled=$('#reconciliation-print').disabled=true;
  $('#reconciliation-body').setAttribute('aria-busy','true');$('#reconciliation-body').innerHTML='<p role="status">正在读取最新消耗、财务日结、充值与钱包数据，并核验读取前后版本…</p>';
@@ -241,7 +242,7 @@ for(const button of document.querySelectorAll('[data-range]'))button.onclick=()=
  }
  render();
 };
-for(const button of document.querySelectorAll('[data-module]')){button.classList.toggle('active',button.dataset.module===module);button.onclick=()=>{module=button.dataset.module;page=0;history.replaceState(null,'',location.pathname+'?module='+module);document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()}};
+for(const button of document.querySelectorAll('[data-module]')){button.classList.toggle('active',button.dataset.module===module);button.onclick=()=>{moduleRanges.set(module,{start:$('#start').value,end:$('#end').value});module=button.dataset.module;const dates=moduleRanges.get(module)||{start:module==='traffic'?DEFAULT_TRAFFIC_START:today.slice(0,7)+'-01',end:today};$('#start').value=dates.start;$('#end').value=dates.end;page=0;history.replaceState(null,'',location.pathname+'?module='+module);document.querySelectorAll('[data-module]').forEach(b=>b.classList.toggle('active',b===button));load()}};
 const fragment=new URLSearchParams(location.hash.slice(1));
 if(fragment.has('access_token')){saveSession({access_token:fragment.get('access_token'),refresh_token:fragment.get('refresh_token'),expires_at:Date.now()/1000+Number(fragment.get('expires_in')??3600)});history.replaceState(null,'',location.pathname+location.search)}else session=readSession();
 if(fragment.get('error_description'))$('#login-message').textContent='登录链接已失效，请重新发送。';

@@ -22,8 +22,7 @@ export function buildProviderSummary(raw,m,options,cents){
   const ledger=allLedger.filter(r=>providerName(r.broker||byId.get(r.campaignId)?.broker)===name&&between(r,m)&&(scopedLedger.has(r.id)||fullGroup));
   const payments=ledger.filter(r=>r.recordType==='payment'&&r.status==='已付款');
   const recharge=metric(payments.map(r=>!r.amountCurrency||r.amountCurrency==='CNY'||r.amountCurrency==='RMB'?cents(r.amount):null));
-  // Daily deposits include funding adjustments and grants; they alone cannot
-  // identify payment principal or prove a bank-payment-linked actual arrival.
+  // User requested estimated arrivals; actual finance/collection data stays intact.
   const spend=metric(accounts.map(a=>a.spend));
   const balances=cs.map(c=>{
    const candidates=[c.accountHomeBalances,c.accountFinanceBalances].filter(o=>o&&o.identity==='verified'&&!o.conflict&&String(o.advertiserId)===String(c.advertiserId)&&dateAt(o.readAt)<=m.end&&cents(o.accountBalance)!==null).sort((a,b)=>Date.parse(b.readAt)-Date.parse(a.readAt));
@@ -39,15 +38,29 @@ export function buildProviderSummary(raw,m,options,cents){
   for(const c of cs){const o=c.sharedWalletObservation;if(!o?.id||o.identity==='unverified'||o.conflict||cents(o.balance)===null||!dateAt(o.observedAt)||dateAt(o.observedAt)>m.end)continue;const id=String(o.id),old=walletMap.get(id);if(!old||!old.at||Date.parse(o.observedAt)>Date.parse(old.at))walletMap.set(id,{id,name:o.name||old?.name||'共享钱包',value:cents(o.balance),at:o.observedAt});}
   const wallets=[...walletMap.values()],sharedBalance=metric(wallets.map(w=>w.value));
   if(!wallets.length)sharedBalance.note='未登记共享钱包';
-  const actualCredits=ledger.filter(r=>(r.recordType||'recharge')==='recharge'&&r.status==='已充值'&&r.source!=='auto-balance-jump'&&(r.creditVerified===true||r.platformCreditVerified===true||r.arrivalVerified===true||(cents(r.cashCreditAmount)!==null&&cents(r.giftCreditAmount)!==null)));
-  const principal=metric(actualCredits.map(r=>!r.amountCurrency||r.amountCurrency==='CNY'||r.amountCurrency==='RMB'?cents(r.baseAmount):null));
-  const creditCandidates=ledger.filter(r=>(r.recordType||'recharge')==='recharge'&&r.source!=='auto-balance-jump');
-  const arrived=metric(actualCredits.map(r=>!r.amountCurrency||r.amountCurrency==='CNY'||r.amountCurrency==='RMB'?cents(r.amount):null),creditCandidates.length);
-  if(!arrived.complete)arrived.note=arrived.value===null?'实际到账待核验':'已确认到账小计，待补齐';
-  const creditsComplete=principal.complete&&creditCandidates.length===actualCredits.length;
-  const debt={value:creditsComplete&&recharge.complete?Math.max(0,principal.value-recharge.value):null,complete:creditsComplete&&recharge.complete,known:creditsComplete&&recharge.complete?1:0,total:1};
+  const creditCandidates=ledger.filter(r=>(r.recordType||'recharge')==='recharge'&&r.status==='已充值'&&r.source!=='auto-balance-jump');
+  const paidIds=new Set(payments.map(r=>r.id));
+  const entries=[...payments,...creditCandidates.filter(r=>!r.sourcePaymentId||!paidIds.has(r.sourcePaymentId))];
+  const fixedRates={'惠和':0.01,'刘鹏鸿':0.055,'域见未来':0};
+  const principalOf=r=>!r.amountCurrency||['CNY','RMB'].includes(r.amountCurrency)?cents(r.recordType==='payment'?r.amount:r.baseAmount):null;
+  const projected=entries.map(r=>{
+   const base=principalOf(r);if(base===null)return null;
+   if(Object.hasOwn(fixedRates,name))return Math.round(base*(1+fixedRates[name]));
+   // Li Yang combines multiple existing rates: keep the stored transaction's
+   // estimate/rate, then the existing wallet rule; never apply TES to Tina.
+   const stored=cents(r.recordType==='payment'?r.expectedCreditAmount:r.amount);if(stored!==null)return stored;
+   const broker=String(r.broker||byId.get(r.campaignId)?.broker||'').replace(/\s/g,'').toLowerCase();
+   const wallet=raw.find(w=>w.kind==='wallets'&&String(w.broker||'').replace(/\s/g,'').toLowerCase()===broker&&typeof w.rebate==='number');
+   const rate=typeof r.rebateRate==='number'?r.rebateRate:wallet?.rebate??(broker==='李杨tes'?0.03:['李杨tina','李杨赫丝'].includes(broker)?0:null);
+   return typeof rate==='number'&&Number.isFinite(rate)&&rate>=0&&rate<=1?Math.round(base*(1+rate)):null;
+  });
+  const principal=metric(entries.map(principalOf)),arrived=metric(projected);
+  arrived.note=arrived.value===null?'预计值缺少金额或规则':arrived.complete?'预计到账':'预计到账小计，待补齐';
+  const paid=payments.length?recharge.complete?recharge.value:null:0;
+  const complete=principal.complete&&paid!==null;
+  const debt={value:complete?Math.max(0,principal.value-paid):null,complete,known:complete?1:0,total:1,note:complete?'预计欠款':''};
   const pending=accounts.filter(a=>a.status!=='已核对').length;
-  return {name,accountCount:accounts.length,recharge,arrived,spend,balance,sharedBalance,debt,balances,wallets,pending,principal,unverifiedCredits:creditCandidates.length-actualCredits.length};
+  return {name,accountCount:accounts.length,recharge,arrived,spend,balance,sharedBalance,debt,balances,wallets,pending,principal,estimatedEntries:entries.length};
  });
  return {rows,unmappedProviders:[...new Set(m.accounts.filter(a=>!providerName(a.broker)).map(a=>a.broker))]};
 }
@@ -55,11 +68,11 @@ export function buildProviderSummary(raw,m,options,cents){
 export function renderProviderSummary(m,{esc,money,localTime,table}){
  const labels=[['recharge','充值'],['arrived','到账'],['spend','消耗'],['balance','余额'],['sharedBalance','共享钱包余额'],['debt','欠款']];
  const cell=(r,[key,label])=>{const metric=r[key];const note=metric.note||(metric.value===null?'待核验':!metric.complete?'已知金额，待补齐':'');return `<td data-label="${esc(label)}"><strong>${money(metric.value)}</strong>${note?`<small>${esc(note)}</small>`:''}</td>`;};
- const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户${r.unverifiedCredits?'；'+r.unverifiedCredits+' 笔到账台账尚缺平台确认，欠款暂不推算。':'。'}</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['共享钱包','余额','来源时间'],r.wallets.map(w=>[w.name,money(w.value),localTime(w.at)])):''}</section>`).join('');
+ const details=m.providers.rows.filter(r=>r.accountCount||r.recharge.value!==null).map(r=>`<section class="recon-provider-detail"><h3>${esc(r.name)}</h3><p>${r.accountCount} 个账户，按 ${r.estimatedEntries} 笔去重后的付款/充值台账预计。</p>${r.balances.length?table(['账户','余额','来源','来源时间'],r.balances.map(b=>[b.account,money(b.value),b.basis,b.at?.includes('T')?localTime(b.at):b.at])):''}${r.wallets.length?table(['共享钱包','余额','来源时间'],r.wallets.map(w=>[w.name,money(w.value),localTime(w.at)])):''}</section>`).join('');
  return `<article class="recon-document recon-simple"><div class="recon-heading"><h2>投流对账报告</h2><p>${esc(m.start)} 至 ${esc(m.end)} · ${esc(m.filters.platform)} · ${esc(m.filters.broker)}</p><p>生成时间 ${esc(localTime(m.generatedAt))} · 金额单位：元</p></div>
  <section class="recon-provider-summary" aria-label="四组投流对账汇总"><table><thead><tr><th scope="col">服务商</th>${labels.map(([,label])=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${m.providers.rows.map(r=>`<tr><th scope="row">${esc(r.name)}</th>${labels.map(label=>cell(r,label)).join('')}</tr>`).join('')}</tbody></table></section>
  <p class="recon-simple-note">充值、到账、消耗按所选日期统计；余额显示最新已采值，共享钱包按钱包去重。缺少依据显示“—”，部分已知金额会单独标注。</p>
- <details class="recon-source-details"><summary>查看金额来源与待核验项</summary><p>充值＝已付款金额；到账＝已确认的平台实际到账（含返点）；欠款＝已确认到账本金−已付款，预付款不计欠款。自动从付款生成的预计到账、余额跳变和未区分资金来源的日结存入不作为实际到账凭据。余额来自已核验账户页面，缺少页面余额时仅列日结参考；来源时间见下表。</p>${details}${m.unmapped.length||m.providers.unmappedProviders.length?`<p>未映射源记录：${m.unmapped.length} 条；未归入四组的服务商：${esc(m.providers.unmappedProviders.join('、')||'无')}。未纳入四组金额。</p>${table(['未归属账户','原服务商'],m.accounts.filter(a=>!providerName(a.broker)).map(a=>[a.name,a.broker]))}`:''}<p>广告数据至 ${esc(m.latestAdDate)}；财务至 ${esc(m.latestFinanceDate)}。报告读取最新回传数据，不自动启动采集。</p></details></article>`;
+ <details class="recon-source-details"><summary>查看金额来源与待核验项</summary><p>充值＝已付款金额；到账按预计值：惠和本金×1.01、刘鹏鸿本金×1.055、域见未来本金×1，李杨沿用交易或钱包已有返点规则。关联同一付款的充值记录不重复计算，余额跳变不当充值。预计欠款＝去重后的台账本金−已付款，预付款不计欠款；预计值不代表平台到账确认。余额来自已核验账户页面，缺少页面余额时仅列日结参考；来源时间见下表。</p>${details}${m.unmapped.length||m.providers.unmappedProviders.length?`<p>未映射源记录：${m.unmapped.length} 条；未归入四组的服务商：${esc(m.providers.unmappedProviders.join('、')||'无')}。未纳入四组金额。</p>${table(['未归属账户','原服务商'],m.accounts.filter(a=>!providerName(a.broker)).map(a=>[a.name,a.broker]))}`:''}<p>广告数据至 ${esc(m.latestAdDate)}；财务至 ${esc(m.latestFinanceDate)}。报告读取最新回传数据，不自动启动采集。</p></details></article>`;
 }
 
 export const summaryStyles=`.recon-simple{max-width:1240px;margin:auto}.recon-simple .recon-heading{margin-bottom:24px}.recon-provider-summary{background:#fff;border:1px solid #e5e7ee;border-radius:14px;overflow:hidden}.recon-provider-summary table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.recon-provider-summary thead{background:#f4f2f9}.recon-provider-summary th,.recon-provider-summary td{padding:21px 14px;text-align:right;border-bottom:1px solid #eef0f5;vertical-align:top}.recon-provider-summary thead th{font-size:13px;color:#626878;font-weight:500}.recon-provider-summary th:first-child{text-align:left;padding-left:22px}.recon-provider-summary tbody th{font-size:16px;font-weight:650;white-space:nowrap}.recon-provider-summary td strong{font-weight:600;font-size:16px;white-space:nowrap}.recon-provider-summary td small{white-space:normal;overflow-wrap:anywhere;display:block;font-size:12px;color:#846222;margin-top:4px;max-width:145px;margin-left:auto}.recon-provider-summary tr:last-child>*{border-bottom:0}.recon-simple-note{font-size:13px;color:#626878;margin:16px 2px 22px}.recon-provider-detail{padding:0 22px 18px}.recon-provider-detail h3{margin:6px 0;font-size:16px}.recon-provider-detail>p{margin:0 0 12px;color:#626878}.recon-source-details summary{min-height:44px;box-sizing:border-box}.recon-source-details summary:focus-visible{outline:2px solid #7546d9;outline-offset:-3px}.recon-source-details .recon-table{max-height:320px;border:1px solid #eef0f5;margin-bottom:12px}.recon-simple .recon-source-details{background:transparent}.recon-simple .recon-source-details[open]{background:#fff}@media(max-width:1100px){.recon-provider-summary th,.recon-provider-summary td{padding:18px 10px}.recon-provider-summary td strong{font-size:14px}}@media(max-width:850px){.recon-toolbar{flex-direction:column;align-items:stretch}.recon-toolbar>strong{white-space:nowrap}.recon-toolbar>div{justify-content:flex-end}.recon-provider-summary{border:0;background:transparent;overflow:visible}.recon-provider-summary table,.recon-provider-summary tbody{display:block}.recon-provider-summary thead{display:none}.recon-provider-summary tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #e5e7ee;border-radius:12px;background:white;margin-bottom:14px;overflow:hidden}.recon-provider-summary tbody th{grid-column:1/-1;background:#f4f2f9;padding:14px 18px!important}.recon-provider-summary tbody td{display:block;padding:14px 18px!important;text-align:left;border-bottom:1px solid #eef0f5;min-width:0}.recon-provider-summary td:before{content:attr(data-label);display:block;font-size:12px;color:#626878;margin-bottom:6px}.recon-provider-summary td small{margin-left:0;max-width:none}.recon-provider-summary td strong{font-size:16px}.recon-provider-summary tbody tr:last-child>*{border-bottom:1px solid #eef0f5}.recon-provider-summary tbody td:nth-last-child(-n+2){border-bottom:0}.recon-provider-detail{padding:0 14px 16px}}@media print{.recon-document details:not([open])>:not(summary){display:none!important}.recon-simple .recon-provider-summary table{display:table}.recon-simple .recon-provider-summary thead{display:table-header-group}.recon-simple .recon-provider-summary tbody{display:table-row-group}.recon-simple .recon-provider-summary tr{display:table-row}.recon-simple .recon-provider-summary th,.recon-simple .recon-provider-summary td{display:table-cell;border-radius:0;font-size:11px;padding:12px 8px!important}.recon-provider-summary td:before{display:none}.recon-provider-summary td strong{font-size:12px}}`;

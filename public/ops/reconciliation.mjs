@@ -1,5 +1,6 @@
-import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-six-metrics';
+import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-estimated-arrival';
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
+export const DEFAULT_TRAFFIC_START='2026-09-01';
 export function cents(value){
  if(finite(value))return Number.isSafeInteger(Math.round(value*100))?Math.round(value*100):null;
  if(typeof value!=='string')return null;
@@ -34,7 +35,7 @@ function financePick(rows){
 }
 export function buildReconciliation(source,options={}){
  const generatedAt=options.generatedAt||new Date().toISOString(),today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date(generatedAt));
- const end=options.end||today,start=options.start||today.slice(0,7)+'-01';
+ const end=options.end||today,start=options.start||DEFAULT_TRAFFIC_START;
  if(!iso(start)||!iso(end)||start>end)throw Error('请设置有效的对账起止日期');
  const raw=source.map(r=>r.payload?{...r.payload,entityKind:r.payload.kind,kind:r.kind}:{...r});
  const campaigns=raw.filter(r=>r.kind==='campaigns'),byCampaign=new Map(campaigns.map(c=>[c.id,c]));
