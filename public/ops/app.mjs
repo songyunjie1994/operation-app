@@ -1,5 +1,5 @@
 import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-estimated-arrival';
-import {loadRecharge} from './recharge.mjs?v=20261026';
+import {createPayments} from './payments.mjs?v=20261026-newdb';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -13,6 +13,7 @@ const badge=p=>`<span class="badge ${p==='kuaishou'?'kuaishou':''}">${p==='kuais
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date());
 $('#start').value=module==='traffic'?DEFAULT_TRAFFIC_START:today.slice(0,7)+'-01';$('#end').value=today;
 const moduleRanges=new Map();
+let paymentsController=null;
 const readSession=()=>{try{return JSON.parse(localStorage.getItem('anbito-ops-session'))}catch{return null}};
 const saveSession=s=>{session=s;if(s)localStorage.setItem('anbito-ops-session',JSON.stringify(s));else localStorage.removeItem('anbito-ops-session')};
 async function auth(route,body){const r=await fetch(C.url+'/auth/v1/'+route,{method:'POST',headers:{apikey:C.anonKey,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(route.startsWith('token?grant_type=password')?'账号或密码不正确，请重新输入':'登录请求未成功，请检查邮箱或稍后重试');return r.json()}
@@ -208,7 +209,7 @@ function render(){
 async function load(force=false){
  const generation=++loadGeneration;$('#status').textContent='正在读取新运营项目…';$('#refresh').disabled=true;
  try{
-  if(module==='recharge'){$('#main').classList.add('recharge-mode');$('#main').classList.remove('consumption-mode');$('#module-title').textContent='充值端';$('#module-description').textContent='管理投流充值、付款与待付款记录。';$('#recharge-panel').hidden=false;$('#recharge-open').hidden=false;$('#export').hidden=true;$('#reconcile').hidden=true;loadRecharge($('#recharge-frame'),$('#status'),{reload:force,isActive:()=>module==='recharge'});$('#status').textContent=$('#recharge-frame').dataset.status||'正在打开充值端…';return;}
+  if(module==='recharge'){$('#main').classList.add('recharge-mode');$('#main').classList.remove('consumption-mode');$('#module-title').textContent='付款记录';$('#module-description').textContent='管理投流付款记录。';$('#recharge-panel').hidden=false;$('#recharge-open').hidden=false;$('#export').hidden=true;$('#reconcile').hidden=true;paymentsController||=createPayments({root:$('#payments-root'),status:$('#status'),config:C,getSession:()=>session,ensureSession,isActive:()=>module==='recharge'});await paymentsController.show();return;}
   if(!cache.shops||force)cache.shops=await rows('ops_shops');
   const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_current_rows','id,kind,payload']})[module];
   if(!cache[key]||force)cache[key]=await rows(tableName,select);
