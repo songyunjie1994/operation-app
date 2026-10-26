@@ -38,7 +38,8 @@ export function buildProviderSummary(raw,m,options,cents){
   for(const w of configured){const id=String(w.walletId||w.id);if(!walletMap.has(id))walletMap.set(id,{id,name:w.name,value:null,at:null});}
   for(const c of cs){const o=c.sharedWalletObservation;if(!o?.id||o.identity==='unverified'||o.conflict||cents(o.balance)===null||!dateAt(o.observedAt)||dateAt(o.observedAt)>m.end)continue;const id=String(o.id),old=walletMap.get(id);if(!old||!old.at||Date.parse(o.observedAt)>Date.parse(old.at))walletMap.set(id,{id,name:o.name||old?.name||'共享钱包',value:cents(o.balance),at:o.observedAt});}
   const wallets=[...walletMap.values()],sharedBalance=metric(wallets.map(w=>w.value));
-  if(!wallets.length)sharedBalance.note='未登记共享钱包';
+  if(!wallets.length&&['惠和','域见未来'].includes(name)){Object.assign(sharedBalance,{value:0,known:0,total:0,complete:true,note:'无共享钱包'});}
+  else if(!wallets.length)sharedBalance.note='未登记共享钱包';
   const creditCandidates=ledger.filter(r=>(r.recordType||'recharge')==='recharge'&&r.status==='已充值'&&r.source!=='auto-balance-jump');
   const paidIds=new Set(payments.map(r=>r.id));
   const entries=[...payments,...creditCandidates.filter(r=>!r.sourcePaymentId||!paidIds.has(r.sourcePaymentId))];
