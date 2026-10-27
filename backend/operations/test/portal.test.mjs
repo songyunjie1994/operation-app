@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import * as reconciliation from '../../../public/ops/reconciliation.mjs';
+import {shopDailyDetails} from '../../../public/ops/business-daily.mjs';
 const localApp=new URL('../public/app.mjs',import.meta.url);
 const appFile=fs.existsSync(localApp)?localApp:new URL('../../../public/ops/app.mjs',import.meta.url);
-const source=fs.readFileSync(appFile,'utf8');
+const source=fs.readFileSync(appFile,'utf8').replace(/^import .*$/gm,'');
 const inventorySource=fs.readFileSync(new URL('inventory-name-map.js',appFile),'utf8')+'\n'+fs.readFileSync(new URL('inventory.js',appFile),'utf8');
 async function portal(data,options={}){
  const nodes=new Map();
@@ -15,6 +17,8 @@ async function portal(data,options={}){
  const calls=[],writes=[];
  const initial=options.signedOut?null:{access_token:'unit-test-only',expires_at:4e9,user:options.user};
  const context={window:{OPS_CONFIG:{url:'https://test.invalid',anonKey:'public',siteUrl:'https://test.invalid/ops/'}},document:{querySelector:node,querySelectorAll:selector=>selector==='[data-view]'?views:selector==='[data-range]'?ranges:buttons},localStorage:{getItem:()=>JSON.stringify(initial),setItem(k,v){writes.push(v)},removeItem(){}},location:{hash:'',pathname:'/ops/',search:''},history:{replaceState(){}},URLSearchParams,Intl,Map,Set,Date,Number,String,Error,JSON,console,fetch:async(url,init)=>{const u=new URL(url);calls.push({url,body:init?.body?JSON.parse(init.body):null});if(u.pathname==='/auth/v1/token')return {ok:!options.badPassword,status:options.badPassword?400:200,json:async()=>({access_token:'unit-login-session',refresh_token:'unit-refresh-only',expires_in:3600,user:{}})};const table=u.pathname.split('/').at(-1);const offset=Number(u.searchParams.get('offset')??0);return {ok:true,status:200,json:async()=>offset?[]:data[table]??[]}}};
+ Object.assign(context,reconciliation,{shopDailyDetails});
+ context.document.createElement=()=>({textContent:''});context.document.head={appendChild(){}};
  await vm.runInNewContext(inventorySource+'\n'+source,context);
  return {nodes,node,buttons,views,ranges,calls,writes};
 }
@@ -222,7 +226,7 @@ test('pagination preserves total counts while limiting rendered consumption rows
  assert.equal((p.node('#table').innerHTML.match(/<tr>/g)||[]).length,16);
  assert.match(p.node('#table').innerHTML,/第 1–15 条 \/ 共 40 条/);
  p.node('#table').querySelector=()=>null;
- p.node('#table').onclick({target:{closest:()=>({dataset:{page:'2'}})}});
+ p.node('#table').onclick({target:{closest:selector=>selector==='[data-page]'?({dataset:{page:'2'}}):null}});
  assert.match(p.node('#table').innerHTML,/第 31–40 条 \/ 共 40 条/);
  p.node('#search').value='不存在';p.node('#search').oninput();assert.equal(p.node('#row-count').textContent,'0 条');
  p.node('#search').value='';p.node('#search').oninput();assert.match(p.node('#table').innerHTML,/第 1–15 条/);

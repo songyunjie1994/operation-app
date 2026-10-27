@@ -1,5 +1,5 @@
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.58.0';
-import {hash,buildAccount,business,shop,timestamp} from './migration.mjs';
+import {hash,buildAccount,business,dailyBusiness,shop,timestamp} from './migration.mjs';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
 const sha=async(text:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))).map(n=>n.toString(16).padStart(2,'0')).join('');
 const check=(r:any)=>{if(r.error)throw new Error('database_request_failed');return r.data};
@@ -9,6 +9,12 @@ async function upload(payload:any,batch:string){
 }
 const emptyPayload=(sources:any[],shops:any[]=[])=>({sources,shops,accounts:[],inventories:[],business:[],traffic_baseline:[],traffic_rows:[]});
 const source=(value:any,label:string)=>({source_hash:hash(value),label,bytes:new TextEncoder().encode(JSON.stringify(value)).length,file_modified_at:new Date().toISOString(),freshness:'device_collected'});
+async function saveDaily(rows:any[]){
+ for(let i=0;i<rows.length;i+=4)await Promise.all(rows.slice(i,i+4).map(async row=>{
+  const saved=check(await db.from('ops_business').update({daily_rows:row.daily_rows}).eq('id',row.id).eq('platform_source_hash',row.platform_source_hash).select('id'));
+  if(saved.length!==1)throw new Error('daily_business_target_missing');
+ }));
+}
 export async function serve(req:Request,kind:'account'|'business'){
  const origin=req.headers.get('origin')||'';
  const allowed=!origin||origin==='https://songyunjie1994.github.io'||/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
@@ -44,6 +50,7 @@ export async function serve(req:Request,kind:'account'|'business'){
     // Stable source timestamps keep duplicate delivery metadata from changing batch content.
     src.file_modified_at=timestamp(body.data.updatedAt);
     await upload(payload,'device-account:'+device.id+':'+body.runId);
+    await saveDaily(normalized.daily);
    }
    const summary={...(body.summary||{}),...(body.data?{_capturedAt:Date.parse(timestamp(body.data.updatedAt))}:{})};
    const result=check(await db.rpc('ops_receive_account_run',{p_device:device.id,p_run:body.runId,p_status:body.status,p_summary:summary,p_hash:dataHash}));
@@ -54,7 +61,7 @@ export async function serve(req:Request,kind:'account'|'business'){
    const shops=check(await db.from('ops_shops').select('shop_key,shop_name').eq('platform',platform));
    const byKey=new Map(shops.map((s:any)=>[s.shop_key,s.shop_name]));
    const rows=check(await db.from('ops_business').select('*').eq('platform',platform).order('captured_at',{ascending:false}).limit(5000));
-   const seen=new Set();const records=rows.filter((r:any)=>{const k=[r.shop_key,r.start_date,r.end_date].join('|');if(seen.has(k))return false;seen.add(k);return true}).map((r:any)=>({platform,shopName:byKey.get(r.shop_key),startDate:r.start_date,endDate:r.end_date,requestedEndDate:r.requested_end_date,grossCents:r.gross_cents,refundPaymentCents:r.refund_payment_cents,netCents:r.net_cents,capturedAt:r.captured_at,uploadedAt:null}));
+   const seen=new Set();const records=rows.filter((r:any)=>{const k=[r.shop_key,r.start_date,r.end_date].join('|');if(seen.has(k))return false;seen.add(k);return true}).map((r:any)=>({platform,shopName:byKey.get(r.shop_key),startDate:r.start_date,endDate:r.end_date,requestedEndDate:r.requested_end_date,grossCents:r.gross_cents,refundPaymentCents:r.refund_payment_cents,netCents:r.net_cents,capturedAt:r.captured_at,uploadedAt:null,...r.daily_rows?{dailyRows:r.daily_rows}:{}}));
    return reply({ok:true,platform,shops:shops.map((s:any)=>s.shop_name),records});
   }
   if(body.action!=='device_business_publish'||!Array.isArray(body.records)||body.records.length<1||body.records.length>100)return reply({error:'invalid_records'},400);
@@ -63,8 +70,10 @@ export async function serve(req:Request,kind:'account'|'business'){
   src.file_modified_at=new Date(Math.max(...body.records.map((r:any)=>Date.parse(timestamp(r.capturedAt))))).toISOString();
   const shops=[...new Map(body.records.map((r:any)=>{const s=shop(platform,r.shopName);return [s.shop_key,s]})).values()];
   const payload={...emptyPayload([src],shops),business:body.records.map((r:any)=>business(r,platform,src.source_hash))};
+  const daily=body.records.flatMap((r:any,i:number)=>{const rows=dailyBusiness(r,platform);return rows?[{id:payload.business[i].id,platform_source_hash:payload.business[i].platform_source_hash,daily_rows:rows}]:[]});
   const unique=new Set(payload.business.map((r:any)=>[r.shop_key,r.start_date,r.end_date].join('|')));if(unique.size!==body.records.length)return reply({error:'duplicate_period'},400);
   await upload(payload,'device-business:'+device.id+':'+src.source_hash);
+  await saveDaily(daily);
   return reply({ok:true,count:body.records.length});
  }catch(error){
   const validation=/Invalid|Missing|Ambiguous|Source net|Inventory|Incomplete|Cargo|Requested|Unexpected/.test(String(error?.message));

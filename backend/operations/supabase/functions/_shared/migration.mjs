@@ -42,9 +42,30 @@ export function business(record,platform,sourceHash) {
   const row={shop_key:identity.shop_key,platform,start_date:start,end_date:end,requested_end_date:requested,gross_cents:gross,refund_payment_cents:refund,net_cents:net,captured_at:timestamp(record.capturedAt),source_hash:sourceHash,platform_source_hash:record.sourceHash??null,refund_metric:platform==='kuaishou'?'refund_by_payment_day':'refund_by_payment_time'};
   return {...row,id:hash(row)};
 }
+export function dailyBusiness(record,platform) {
+  if(record.dailyRows===undefined&&record.sourceKind!=='compass_download_all_unlimited')return null;
+  requireValue(platform==='douyin'&&record.sourceKind==='compass_download_all_unlimited'
+    &&record.sourceFilter?.carrier==='全部'&&record.sourceFilter?.placement==='不限','Invalid daily business source');
+  requireValue(/^[a-f0-9]{64}$/.test(record.sourceHash||''),'Missing daily workbook hash');
+  const start=date(record.startDate),end=date(record.endDate),days=(Date.parse(end)-Date.parse(start))/86400000+1;
+  requireValue(!record.requestedEndDate&&days>=1&&days<=31&&Array.isArray(record.dailyRows)&&record.dailyRows.length===days,'Incomplete daily business period');
+  let gross=0,refund=0;
+  const rows=record.dailyRows.map((r,i)=>{
+    const expected=new Date(Date.parse(start)+i*86400000).toISOString().slice(0,10);
+    requireValue(r.date===expected,'Invalid or duplicate daily business date');
+    requireValue(Number.isSafeInteger(r.grossCents)&&r.grossCents>=0&&Number.isSafeInteger(r.refundPaymentCents)&&r.refundPaymentCents>=0
+      &&Number.isSafeInteger(r.netCents)&&r.netCents===r.grossCents-r.refundPaymentCents,'Invalid daily business money');
+    requireValue(Number.isSafeInteger(r.sourceRow)&&r.sourceRow>0,'Missing daily workbook row');
+    gross+=r.grossCents;refund+=r.refundPaymentCents;
+    return {date:r.date,grossCents:r.grossCents,refundPaymentCents:r.refundPaymentCents,netCents:r.netCents,sourceRow:r.sourceRow};
+  });
+  requireValue(Number.isSafeInteger(gross)&&Number.isSafeInteger(refund)&&gross===record.grossCents&&refund===record.refundPaymentCents
+    &&record.netCents===gross-refund,'Source daily totals do not match period');
+  return rows;
+}
 export function buildAccount(snapshot,sourceHash) {
   requireValue(snapshot&&typeof snapshot.stores==='object'&&!Array.isArray(snapshot.stores),'Invalid account snapshot');
-  const shops=[],accounts=[],inventories=[],metrics=[];
+  const shops=[],accounts=[],inventories=[],metrics=[],daily=[];
   for(const [name,store] of Object.entries(snapshot.stores)){
     const identity=shop('douyin',name);shops.push(identity);
     const rawCapture=store.collection?.collectedAt||snapshot.updatedAt;
@@ -61,10 +82,13 @@ export function buildAccount(snapshot,sourceHash) {
       if(!record.summary.truncated&&record.summary.total!==null)requireValue(record.summary.total===inv.items.length,'Incomplete inventory pagination');
       inventories.push({...record,id:hash(record)});
     }
-    for(const r of store.business??[])metrics.push(business(r,'douyin',sourceHash));
+    for(const r of store.business??[]){
+      const normalized=business(r,'douyin',sourceHash);metrics.push(normalized);
+      const rows=dailyBusiness(r,'douyin');if(rows)daily.push({id:normalized.id,platform_source_hash:normalized.platform_source_hash,daily_rows:rows});
+    }
   }
   for(const r of snapshot.platforms?.kuaishou?.business??[]){shops.push(shop('kuaishou',r.shopName));metrics.push(business(r,'kuaishou',sourceHash))}
-  return {shops:[...new Map(shops.map(s=>[s.shop_key,s])).values()],accounts,inventories,business:metrics};
+  return {shops:[...new Map(shops.map(s=>[s.shop_key,s])).values()],accounts,inventories,business:metrics,daily};
 }
 export function buildTraffic(document,sourceHash,backedUpAt) {
   let data=document.data??document;if(typeof data==='string')data=JSON.parse(data);
