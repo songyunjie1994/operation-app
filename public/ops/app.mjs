@@ -1,7 +1,8 @@
-import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-clean-summary';
+import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261027-broker-filter';
 import {createPayments} from './payments.mjs?v=20261026-clean-summary';
 import {consumptionPreviews,renderConsumptionPreviews} from './consumption-preview.mjs?v=20261027-provisional';
 import {shopDailyDetails} from './business-daily.mjs?v=20261027-workbook';
+import {providerName} from './reconciliation-summary.mjs?v=20261026-clean-summary';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
@@ -28,6 +29,8 @@ const latest=(items,key)=>[...items.reduce((m,r)=>{const k=key(r),old=m.get(k);i
 const latestPeriods=items=>[...items.reduce((m,r)=>{const key=[r.platform,r.shop_key,r.start_date].join('|'),old=m.get(key);if(!old||r.end_date>old.end_date||(r.end_date===old.end_date&&r.captured_at>old.captured_at))m.set(key,r);return m},new Map()).values()];
 const sum=(items,get)=>{const values=items.map(get).filter(x=>typeof x==='number'&&Number.isFinite(x));return values.length?values.reduce((a,b)=>a+b,0):null};
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
+const displayCampaign=c=>({...c,broker:providerName(c.broker)||String(c.broker??'').trim().replace(/\s+/g,' ')});
+const emptyTraffic=r=>['spend','revenue','netRevenue'].every(k=>finite(r[k])&&r[k]===0);
 const supplyDebt=r=>{const debt=r.funds?.supply?.debt;return finite(debt)?(debt===0?0:-Math.abs(debt)):null};
 const moneyCents=n=>finite(n)?money(n/100):'—';
 const businessNet=r=>finite(r.gross_cents)&&finite(r.refund_payment_cents)?r.gross_cents-r.refund_payment_cents:null;
@@ -46,15 +49,15 @@ function renderCoverage(data,shops,allowed,start,end){
 }
 function trafficRecords(platform,search){
  const raw=(cache.traffic??[]).map(r=>({...r.payload,kind:r.kind}));
- const campaigns=new Map(raw.filter(r=>r.kind==='campaigns').map(r=>[r.id,r]));
+ const campaigns=new Map(raw.filter(r=>r.kind==='campaigns').map(r=>[r.id,displayCampaign(r)]));
  const selected=$('#traffic-account').value,broker=$('#traffic-broker').value;
  const matchesPlatform=c=>!platform||(platform==='kuaishou'?c?.platform==='快手':['千川','巨量引擎','抖音','抖店'].includes(c?.platform));
- const data=raw.filter(r=>r.kind==='records').map(r=>({...r,campaign:campaigns.get(r.campaignId)})).filter(r=>matchesPlatform(r.campaign)&&(!selected||r.campaignId===selected)&&(!broker||r.campaign?.broker===broker)&&(!search||[r.douyinName,r.douyinNumber,r.advertiserId,r.campaign?.name,r.campaign?.broker].some(v=>String(v??'').toLowerCase().includes(search))));
+ const data=raw.filter(r=>r.kind==='records'&&!emptyTraffic(r)).map(r=>({...r,campaign:campaigns.get(r.campaignId)})).filter(r=>matchesPlatform(r.campaign)&&(!selected||r.campaignId===selected)&&(!broker||r.campaign?.broker===broker)&&(!search||[r.douyinName,r.douyinNumber,r.advertiserId,r.campaign?.name,r.campaign?.broker].some(v=>String(v??'').toLowerCase().includes(search))));
  return {raw,campaigns,data,matchesPlatform};
 }
 function renderTraffic(start,end,search,platform){
  const raw=(cache.traffic??[]).map(r=>({...r.payload,kind:r.kind}));
- const allCampaigns=raw.filter(r=>r.kind==='campaigns');
+ const allCampaigns=raw.filter(r=>r.kind==='campaigns').map(displayCampaign);
  const selected=$('#traffic-account').value,selectedBroker=$('#traffic-broker').value;
  $('#traffic-account').innerHTML='<option value="">全部账户</option>'+allCampaigns.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
  $('#traffic-broker').innerHTML='<option value="">全部中介</option>'+[...new Set(allCampaigns.map(c=>c.broker).filter(Boolean))].sort().map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');

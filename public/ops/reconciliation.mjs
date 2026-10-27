@@ -1,4 +1,4 @@
-import {buildProviderSummary,renderProviderSummary,summaryStyles} from './reconciliation-summary.mjs?v=20261026-clean-summary';
+import {buildProviderSummary,renderProviderSummary,summaryStyles,providerName} from './reconciliation-summary.mjs?v=20261026-clean-summary';
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 export const DEFAULT_TRAFFIC_START='2026-09-01';
 export function cents(value){
@@ -34,17 +34,19 @@ function financePick(rows){
  return {row,conflict:new Set(rows.map(signature)).size>1};
 }
 export function buildReconciliation(source,options={}){
+ options={...options,broker:providerName(options.broker)||options.broker};
  const generatedAt=options.generatedAt||new Date().toISOString(),today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date(generatedAt));
  const dayBefore=new Date(today+'T00:00:00Z');dayBefore.setUTCDate(dayBefore.getUTCDate()-1);const yesterday=dayBefore.toISOString().slice(0,10);
  const requestedEnd=options.end||today,end=options.settled&&requestedEnd>yesterday?yesterday:requestedEnd,start=options.start||DEFAULT_TRAFFIC_START;
  if(!iso(start)||!iso(end)||start>end)throw Error('请设置有效的对账起止日期');
  const raw=source.map(r=>r.payload?{...r.payload,entityKind:r.payload.kind,kind:r.kind}:{...r});
+ const matchesBroker=broker=>!options.broker||(providerName(broker)||broker)===options.broker;
  const campaigns=raw.filter(r=>r.kind==='campaigns'),byCampaign=new Map(campaigns.map(c=>[c.id,c]));
  const accountKey=r=>r.advertiserId?String(r.advertiserId):byCampaign.get(r.campaignId)?.advertiserId||r.campaignId||'unmapped:'+r.id;
  const campaignKey=c=>String(c.advertiserId||c.id);
  const matchesPlatform=c=>!options.platform||(options.platform==='kuaishou'?c?.platform==='快手':['千川','巨量引擎','抖音','抖店'].includes(c?.platform));
  const search=text(options.search).trim().toLowerCase();
- let scope=campaigns.filter(c=>matchesPlatform(c)&&(!options.broker||c.broker===options.broker)&&(!options.account||c.id===options.account));
+ let scope=campaigns.filter(c=>matchesPlatform(c)&&(matchesBroker(c.broker))&&(!options.account||c.id===options.account));
  if(search){const hits=new Set(raw.filter(r=>r.kind==='records'&&[r.douyinName,r.douyinNumber].some(v=>text(v).toLowerCase().includes(search))).map(accountKey));scope=scope.filter(c=>hits.has(campaignKey(c))||[c.name,c.account,c.advertiserId,c.broker].some(v=>text(v).toLowerCase().includes(search)));}
  const selected=new Set(scope.map(campaignKey)),byAccount=new Map(scope.map(c=>[campaignKey(c),c]));
  const records=raw.filter(r=>r.kind==='records'&&selected.has(accountKey(r))&&inRange(r,start,end));
@@ -91,7 +93,7 @@ export function buildReconciliation(source,options={}){
    warnings,status:balanceDifference!==null&&balanceDifference!==0||items.some(r=>r.status==='差额')?'差额':warnings.length||items.some(r=>r.status==='待核验')?'待核验':'已核对',days:items.length});
  }
  const allowedBrokers=new Set(scope.map(c=>c.broker).filter(Boolean));
- const ledger=raw.filter(r=>r.kind==='recharges'&&inRange(r,start,end)&&(!options.broker||r.broker===options.broker)&&(!options.platform||!r.campaignId||matchesPlatform(byCampaign.get(r.campaignId)))&&(!r.campaignId||selected.has(accountKey(r)))&&(!search||allowedBrokers.has(r.broker)||r.campaignId&&selected.has(accountKey(r))));
+ const ledger=raw.filter(r=>r.kind==='recharges'&&inRange(r,start,end)&&(matchesBroker(r.broker))&&(!options.platform||!r.campaignId||matchesPlatform(byCampaign.get(r.campaignId)))&&(!r.campaignId||selected.has(accountKey(r)))&&(!search||allowedBrokers.has(r.broker)||r.campaignId&&selected.has(accountKey(r))));
  const credits=ledger.filter(r=>r.recordType!=='payment'),payments=ledger.filter(r=>r.recordType==='payment'),creditPayments=new Set(credits.map(r=>r.sourcePaymentId).filter(Boolean));
  const rechargeRows=ledger.map(r=>({id:r.id,date:r.date,broker:r.broker||'未归属服务商',accountId:r.campaignId?accountKey(r):null,account:byCampaign.get(r.campaignId)?.name||'未分配账户',type:r.recordType==='payment'?'银行付款':'充值台账',amount:cents(r.amount),cash:cents(r.baseAmount),gift:cents(r.rebateAmount),
   status:r.status||'未提供状态',source:r.source||'未提供来源',paymentId:r.sourcePaymentId||null,issues:[...(!r.campaignId?['尚未分配账户，不参与单户余额核验']:[]),...(r.source==='auto-balance-jump'?['余额跳变推测，不作为已验证充值']:[]),...(r.source==='auto-from-payment'?['由付款生成，待核验平台实际入账']:[]),...(r.recordType==='payment'&&creditPayments.has(r.id)?['已关联充值记录，付款与充值不重复相加']:[])]}));
@@ -104,7 +106,7 @@ export function buildReconciliation(source,options={}){
   if(account.rechargeStatus==='差额'){account.status='差额';account.warnings.push('充值台账与日结现金/赠款存入不同，需核验归属及到账日期');}
   else if(account.rechargeStatus==='待核验'){if(account.status!=='差额')account.status='待核验';account.warnings.push(bound.length?'充值现金或赠款缺少独立对照字段':'没有已归属账户的充值台账，不能猜测分配');}
  }
- const wallets=raw.filter(r=>r.kind==='wallets'&&r.entityKind!=='self'&&(!options.broker||r.broker===options.broker)&&(!options.account||r.accounts?.some(a=>scope.some(c=>c.advertiserId===a.advertiserId)))&&(!options.platform||r.accounts?.some(a=>scope.some(c=>c.advertiserId===a.advertiserId)))&&(!search||allowedBrokers.has(r.broker)));
+ const wallets=raw.filter(r=>r.kind==='wallets'&&r.entityKind!=='self'&&(matchesBroker(r.broker))&&(!options.account||r.accounts?.some(a=>scope.some(c=>c.advertiserId===a.advertiserId)))&&(!options.platform||r.accounts?.some(a=>scope.some(c=>c.advertiserId===a.advertiserId)))&&(!search||allowedBrokers.has(r.broker)));
  const walletRows=wallets.map(w=>{
   const snapshots=raw.filter(r=>r.kind==='walletSnapshots'&&[w.id,w.walletId].includes(r.walletId)&&iso(r.date));
   const before=snapshots.filter(r=>r.date<start).sort((a,b)=>b.date.localeCompare(a.date)).at(0),last=snapshots.filter(r=>r.date<=end).sort((a,b)=>b.date.localeCompare(a.date)).at(0);

@@ -6,6 +6,7 @@ import * as reconciliation from '../../../public/ops/reconciliation.mjs';
 import {shopDailyDetails} from '../../../public/ops/business-daily.mjs';
 import {createPayments} from '../../../public/ops/payments.mjs';
 import {consumptionPreviews,renderConsumptionPreviews} from '../../../public/ops/consumption-preview.mjs';
+import {providerName} from '../../../public/ops/reconciliation-summary.mjs';
 const localApp=new URL('../public/app.mjs',import.meta.url);
 const appFile=fs.existsSync(localApp)?localApp:new URL('../../../public/ops/app.mjs',import.meta.url);
 const source=fs.readFileSync(appFile,'utf8').replace(/^import .*$/gm,'');
@@ -19,7 +20,7 @@ async function portal(data,options={}){
  const calls=[],writes=[];
  const initial=options.signedOut?null:{access_token:'unit-test-only',expires_at:4e9,user:options.user};
  const context={window:{OPS_CONFIG:{url:'https://test.invalid',anonKey:'public',siteUrl:'https://test.invalid/ops/'}},document:{querySelector:node,querySelectorAll:selector=>selector==='[data-view]'?views:selector==='[data-range]'?ranges:buttons},localStorage:{getItem:()=>JSON.stringify(initial),setItem(k,v){writes.push(v)},removeItem(){}},location:{hash:'',pathname:'/ops/',search:''},history:{replaceState(){}},URLSearchParams,Intl,Map,Set,Date,Number,String,Error,JSON,console,fetch:async(url,init)=>{const u=new URL(url);calls.push({url,body:init?.body?JSON.parse(init.body):null});if(u.pathname==='/auth/v1/token')return {ok:!options.badPassword,status:options.badPassword?400:200,json:async()=>({access_token:'unit-login-session',refresh_token:'unit-refresh-only',expires_in:3600,user:{}})};const table=u.pathname.split('/').at(-1);const offset=Number(u.searchParams.get('offset')??0);return {ok:true,status:200,json:async()=>offset?[]:data[table]??[]}}};
- Object.assign(context,reconciliation,{shopDailyDetails,createPayments,consumptionPreviews,renderConsumptionPreviews});
+ Object.assign(context,reconciliation,{shopDailyDetails,createPayments,consumptionPreviews,renderConsumptionPreviews,providerName});
  context.document.createElement=()=>({textContent:''});context.document.head={appendChild(){}};
  await vm.runInNewContext(inventorySource+'\n'+source,context);
  return {nodes,node,buttons,views,ranges,calls,writes};
@@ -142,10 +143,10 @@ test('daily consumption merges a creator across accounts while preserving dates,
  ].map(([campaignId,date,douyinNumber,spend,revenue,netRevenue])=>({campaignId,date,douyinNumber,douyinName:'号'+douyinNumber,spend,revenue,netRevenue}));
  const p=await portal({ops_traffic_current_rows:[...campaigns.map(payload=>({kind:'campaigns',payload})),...records.map(payload=>({kind:'records',payload}))]});
  p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
- assert.equal(p.node('#row-count').textContent,'6 条');
+ assert.equal(p.node('#row-count').textContent,'5 条');
  assert.match(p.node('#table').innerHTML,/2026-10-20.*data-label="整体ROI">2\.75.*data-label="整体消耗">¥400\.00.*data-label="整体成交金额">¥1,100\.00.*data-label="净ROI">1\.50.*data-label="净成交金额">¥600\.00/);
  p.node('#traffic-account').value='a';p.node('#traffic-account').onchange();
- assert.equal(p.node('#row-count').textContent,'4 条');assert.match(p.node('#table').innerHTML,/data-label="整体消耗">¥100\.00/);
+ assert.equal(p.node('#row-count').textContent,'3 条');assert.match(p.node('#table').innerHTML,/data-label="整体消耗">¥100\.00/);
  assert.equal(records[0].spend,100);assert.equal(records[1].spend,300);
 });
 
@@ -232,4 +233,28 @@ test('pagination preserves total counts while limiting rendered consumption rows
  assert.match(p.node('#table').innerHTML,/第 31–40 条 \/ 共 40 条/);
  p.node('#search').value='不存在';p.node('#search').oninput();assert.equal(p.node('#row-count').textContent,'0 条');
  p.node('#search').value='';p.node('#search').oninput();assert.match(p.node('#table').innerHTML,/第 1–15 条/);
+});
+
+test('broker aliases become four provider choices and all Li Yang accounts remain in the same selection',async()=>{
+ const aliases=['李杨 tina','李杨tina','李杨tes','李杨赫丝','域见未来 1','域见未来1','刘鹏鸿6608','惠和'];
+ const campaigns=aliases.map((broker,i)=>({id:'c'+i,broker,name:'账户'+i,platform:'千川'}));
+ const raw=campaigns.map(payload=>({kind:'campaigns',payload})).concat(campaigns.map(c=>({kind:'records',payload:{campaignId:c.id,date:'2026-10-20',douyinNumber:c.id,spend:1,revenue:0,netRevenue:0}})));
+ const original=JSON.stringify(raw),p=await portal({ops_traffic_current_rows:raw});
+ p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ const options=[...p.node('#traffic-broker').innerHTML.matchAll(/<option value="([^"]+)"/g)].map(m=>m[1]);
+ assert.deepEqual(options.sort(),['李杨','惠和','域见未来','刘鹏鸿'].sort());
+ p.node('#traffic-broker').value='李杨';p.node('#traffic-broker').onchange();assert.equal(p.node('#row-count').textContent,'4 条');assert.match(p.node('#summary').innerHTML,/¥4\.00/);
+ assert.equal(JSON.stringify(raw),original);
+ const report=reconciliation.buildReconciliation(raw,{start:'2026-10-01',end:'2026-10-21',broker:'李杨'});
+ assert.equal(report.accounts.length,4);assert.equal(report.accounts.reduce((n,r)=>n+r.spend,0),400);
+});
+
+test('only entirely known zero traffic rows are hidden; spend-only, sales-only, negative and unknown rows remain',async()=>{
+ const metrics=[['全零',0,0,0],['仅消耗',6.05,0,0],['仅成交',0,100,0],['负净成交',0,0,-2],['缺失金额',0,0,null]];
+ const raw=[{kind:'campaigns',payload:{id:'c',platform:'千川'}},...metrics.map(([name,spend,revenue,netRevenue])=>({kind:'records',payload:{campaignId:'c',date:'2026-10-20',douyinNumber:name,douyinName:name,spend,revenue,netRevenue}}))];
+ const p=await portal({ops_traffic_current_rows:raw});p.node('#start').value='2026-10-01';p.node('#end').value='2026-10-21';await p.buttons.find(b=>b.dataset.module==='traffic').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.equal(p.node('#row-count').textContent,'4 条');assert.ok(!p.node('#table').innerHTML.includes('全零'));
+ for(const label of ['仅消耗','仅成交','负净成交','缺失金额'])assert.ok(p.node('#table').innerHTML.includes(label));
+ assert.match(p.node('#summary').innerHTML,/¥6\.05/);assert.match(p.node('#summary').innerHTML,/¥100\.00/);assert.match(p.node('#summary').innerHTML,/-¥2\.00/);
+ assert.equal(raw.length,6);
 });
