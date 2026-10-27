@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#7546d9">
   <title>安必拓 · 运营中心</title>
-  <link rel="stylesheet" href="style.css?v=20261026-daily">
+  <link rel="stylesheet" href="style.css?v=20261027-provisional">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
@@ -60,6 +60,7 @@
     <p class="nav-group">数据中心</p>
     <nav aria-label="模块导航">
       <button data-module="business" class="active"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-business"/></svg></span>经营数据</button>
+      <button data-module="recharge"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-account"/></svg></span>充值端</button>
       <button data-module="traffic"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-traffic"/></svg></span>消耗端</button>
       <button data-module="inventory"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-inventory"/></svg></span>库存数据</button>
       <button data-module="account"><span class="nav-icon"><svg aria-hidden="true"><use href="#icon-account"/></svg></span>账户资金</button>
@@ -71,8 +72,9 @@
     <p class="breadcrumb"><span>运营工作台</span><svg aria-hidden="true"><use href="#icon-chevron"/></svg><span>数据中心</span></p>
     <header>
       <div><h1 id="module-title">经营数据</h1><p id="module-description" class="muted">看清每一家店的成交、退款与净成交。</p></div>
-      <div class="header-actions"><button id="reconcile" hidden><svg aria-hidden="true"><use href="#icon-traffic"/></svg>生成实时对账报告</button><button id="export" class="secondary" disabled><svg aria-hidden="true"><use href="#icon-download"/></svg>导出 Excel</button><button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button></div>
+      <div class="header-actions"><a id="recharge-open" class="secondary recharge-open" href="?module=recharge" target="_blank" rel="noopener" hidden>新窗口打开</a><button id="reconcile" hidden><svg aria-hidden="true"><use href="#icon-traffic"/></svg>生成实时对账报告</button><button id="export" class="secondary" disabled><svg aria-hidden="true"><use href="#icon-download"/></svg>导出 Excel</button><button id="refresh" class="secondary"><svg aria-hidden="true"><use href="#icon-refresh"/></svg>刷新数据</button></div>
     </header>
+    <section id="recharge-panel" hidden aria-label="投流付款记录"><div id="payments-root"></div></section>
     <details class="migration-note" id="migration-note"><summary><svg aria-hidden="true"><use href="#icon-info"/></svg>数据来源与统计口径</summary><p>经营按已采期间展示，空值保留“—”；投流为历史快照，数据日期见消耗页。广告消耗与财务日结分别统计。</p></details>
     <section class="filter-panel" aria-label="数据筛选">
       <div class="filter-top"><span class="filter-label"><svg aria-hidden="true"><use href="#icon-filter"/></svg>筛选范围</span><div class="quick-ranges"><button data-range="month" class="range-button">本月</button><button data-range="previous" class="range-button">上月</button><button data-range="latest" class="range-button">最近有数据月份</button><button data-range="all" class="range-button">全部日期</button></div></div>
@@ -87,6 +89,7 @@
     <p id="status" role="status" class="muted"></p>
     <section id="summary" class="summary" aria-label="关键指标"></section>
     <section id="coverage" class="coverage" hidden></section>
+    <section id="consumption-previews" class="coverage consumption-previews" aria-label="暂估消耗待复核" hidden></section>
     <section id="analytics" class="analytics" hidden></section>
     <section class="panel">
       <div class="panel-title"><div><h2 id="table-title">店铺汇总</h2></div><span id="row-count" class="muted"></span></div>

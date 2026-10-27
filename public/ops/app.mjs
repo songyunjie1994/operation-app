@@ -1,9 +1,11 @@
-import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-estimated-arrival';
+import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderReconciliation,reportDocument,reportStyles} from './reconciliation.mjs?v=20261026-clean-summary';
+import {createPayments} from './payments.mjs?v=20261026-clean-summary';
+import {consumptionPreviews,renderConsumptionPreviews} from './consumption-preview.mjs?v=20261027-provisional';
 import {shopDailyDetails} from './business-daily.mjs?v=20261027-workbook';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
-const labels={traffic:'消耗端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
+const labels={traffic:'消耗端',recharge:'充值端',business:'经营数据',inventory:'库存数据',account:'账户资金'};
 const requestedModule=new URLSearchParams(location.search).get('module');
 let session=null,module=Object.hasOwn(labels,requestedModule)?requestedModule:'business',cache={},loadGeneration=0,trafficView='consumption';
 const esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,6 +15,7 @@ const badge=p=>`<span class="badge ${p==='kuaishou'?'kuaishou':''}">${p==='kuais
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date());
 $('#start').value=module==='traffic'?DEFAULT_TRAFFIC_START:today.slice(0,7)+'-01';$('#end').value=today;
 const moduleRanges=new Map();
+let paymentsController=null;
 const readSession=()=>{try{return JSON.parse(localStorage.getItem('anbito-ops-session'))}catch{return null}};
 const saveSession=s=>{session=s;if(s)localStorage.setItem('anbito-ops-session',JSON.stringify(s));else localStorage.removeItem('anbito-ops-session')};
 async function auth(route,body){const r=await fetch(C.url+'/auth/v1/'+route,{method:'POST',headers:{apikey:C.anonKey,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(route.startsWith('token?grant_type=password')?'账号或密码不正确，请重新输入':'登录请求未成功，请检查邮箱或稍后重试');return r.json()}
@@ -57,6 +60,9 @@ function renderTraffic(start,end,search,platform){
  $('#traffic-broker').innerHTML='<option value="">全部中介</option>'+[...new Set(allCampaigns.map(c=>c.broker).filter(Boolean))].sort().map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
  $('#traffic-account').value=selected;$('#traffic-broker').value=selectedBroker;
  const {campaigns,data:filtered,matchesPlatform}=trafficRecords(platform,search);
+ const previews=consumptionPreviews([...campaigns.values()],{start,end,selected,broker:selectedBroker,search,matchesPlatform});
+ $('#consumption-previews').hidden=!previews.length;
+ $('#consumption-previews').innerHTML=renderConsumptionPreviews(previews);
  const data=filtered.filter(r=>(!start||r.date>=start)&&(!end||r.date<=end));
  const allDates=raw.filter(r=>r.kind==='records'&&r.date).map(r=>r.date).sort();
  const spend=addMoney(data,r=>r.spend),missing=data.filter(r=>!finite(r.spend)).length;
@@ -134,6 +140,7 @@ function openShopDaily(shopKey,shopName,startDate,endDate){
  body.innerHTML='<div class="table-wrap"><table><thead><tr><th>日期</th><th class="num">成交金额</th><th class="num">退款金额</th><th class="num">净成交金额</th><th>采集时间</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.date)+'</td><td class="num">'+esc(moneyCents(r.gross))+'</td><td class="num">'+esc(moneyCents(r.refund))+'</td><td class="num">'+esc(moneyCents(r.net))+'</td><td>'+esc(stamp(r.captured))+'</td></tr>').join('')+'</tbody></table></div><p class="detail-note">'+esc(note)+'</p>';
 }
 function render(){
+ $('#main').classList.remove('recharge-mode');$('#recharge-panel').hidden=true;$('#recharge-open').hidden=true;$('#export').hidden=false;
  const start=$('#start').value,end=$('#end').value,search=$('#search').value.trim().toLowerCase(),platform=$('#platform').value;
  const shops=new Map((cache.shops??[]).map(s=>[s.shop_key,s]));
  const allowed=r=>{const s=shops.get(r.shop_key);return s&&(!platform||s.platform===platform)&&(!search||s.shop_name.toLowerCase().includes(search))};
@@ -150,6 +157,7 @@ function render(){
  if(module==='traffic'){$('#traffic-views').hidden=true;$('#analytics').hidden=trafficView==='consumption';}
  for(const id of ['inventory-tools','inventory-stores'])$('#'+id).hidden=module!=='inventory';
  $('#coverage').hidden=true;
+ $('#consumption-previews').hidden=true;
  $('#start').disabled=$('#end').disabled=['account','inventory'].includes(module);
  if(!['account','inventory'].includes(module)&&start&&end&&start>end){stats([]);table([],[]);$('#status').textContent='开始日期不能晚于结束日期';$('#analytics').hidden=true;return}
 
@@ -189,6 +197,7 @@ function render(){
 async function load(force=false){
  const generation=++loadGeneration;$('#status').textContent='正在读取新运营项目…';$('#refresh').disabled=true;
  try{
+  if(module==='recharge'){$('#main').classList.add('recharge-mode');$('#main').classList.remove('consumption-mode');$('#module-title').textContent='付款记录';$('#module-description').textContent='管理投流付款记录。';$('#recharge-panel').hidden=false;$('#recharge-open').hidden=false;$('#export').hidden=true;$('#reconcile').hidden=true;paymentsController||=createPayments({root:$('#payments-root'),status:$('#status'),config:C,getSession:()=>session,ensureSession,isActive:()=>module==='recharge'});await paymentsController.show();return;}
   if(!cache.shops||force)cache.shops=await rows('ops_shops');
   const [key,tableName,select]=({business:['business','ops_business','*'],account:['accounts','ops_accounts','*'],inventory:['inventory','ops_inventory','*'],traffic:['traffic','ops_traffic_current_rows','id,kind,payload']})[module];
   if(!cache[key]||force)cache[key]=await rows(tableName,select);
@@ -220,7 +229,7 @@ $('#reconcile').onclick=async()=>{
   const snapshot=await consistentSnapshot(trafficVersion,()=>rows('ops_traffic_current_rows','id,kind,payload'));
   if(generation!==reconciliationGeneration)return;
   if(snapshot.rows.length!==snapshot.version.rows)throw Error('数据条数与版本不一致，本次未生成报告，请重试');
-  const model=buildReconciliation(snapshot.rows,{...options,generatedAt:new Date().toISOString(),fetchedAt:snapshot.fetchedAt,version:snapshot.version});
+  const model=buildReconciliation(snapshot.rows,{...options,settled:true,generatedAt:new Date().toISOString(),fetchedAt:snapshot.fetchedAt,version:snapshot.version});
   cache.traffic=snapshot.rows;render();reconciliationModel=model;
   $('#reconciliation-body').innerHTML=renderReconciliation(model);$('#reconciliation-save').disabled=$('#reconciliation-print').disabled=false;
  }catch(error){if(generation===reconciliationGeneration)$('#reconciliation-body').innerHTML='<p role="alert">报告未生成：'+esc(error.message)+'。可关闭后重新生成；未使用上次报告代替。</p>'}
