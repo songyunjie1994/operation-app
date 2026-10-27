@@ -377,7 +377,9 @@ main.consumption-mode #table th, main.consumption-mode #table td { white-space:n
 .daily-modal-card{background:#fff;border-radius:16px;max-width:880px;width:100%;max-height:82vh;overflow:auto;padding:20px 22px;box-shadow:0 24px 60px rgba(30,20,60,.25)}
 .daily-modal-card header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .daily-modal-card h3{margin:0;font-size:18px}
-.daily-modal-card header button{border:1px solid #d9d2ec;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+.daily-modal-card header button{border:1px solid #d9d2ec;background:#fff;color:var(--text);min-width:60px;min-height:44px;border-radius:8px;padding:6px 12px;cursor:pointer}
+.shop-card[data-shop-daily]{cursor:pointer}
+.shop-card[data-shop-daily]:focus-visible{outline:3px solid var(--primary);outline-offset:3px}
 .daily-modal-card td.num,.daily-modal-card th.num{text-align:right}
 
 .receipt-viewer{width:min(1000px,94vw);max-height:92dvh;overflow:auto}.receipt-images img{display:block;max-width:100%;height:auto;margin:16px auto}.receipt-viewer [role=status]{white-space:normal;color:var(--muted)}
