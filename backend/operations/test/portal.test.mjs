@@ -93,6 +93,8 @@ test('business missing values do not create net, while zero and negative net rem
  p.node('#search').value='missing';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>—/);
  p.node('#search').value='zero';p.node('#search').oninput();assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>¥0\.00/);
  p.node('#end').value='2026-10-10';p.node('#end').onchange();assert.equal(p.node('#row-count').textContent,'0 条');assert.match(p.node('#summary').innerHTML,/净成交金额<\/span><strong>—/);
+ p.node('#start').value='2026-11-01';p.node('#start').onchange();assert.match(p.node('#status').textContent,/开始日期不能晚于结束日期/);
+ p.node('#start').value='2026-10-01';p.node('#start').onchange();assert.doesNotMatch(p.node('#status').textContent,/开始日期不能晚于结束日期/);
 });
 test('password login maps admin alias, clears password and persists only the session',async()=>{
  const p=await portal({},{signedOut:true});p.node('#email').value='admin';p.node('#password').value='unit-password-not-a-real-secret';

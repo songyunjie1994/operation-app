@@ -163,6 +163,7 @@ function render(){
  $('#consumption-previews').hidden=true;
  $('#start').disabled=$('#end').disabled=['account','inventory'].includes(module);
  if(!['account','inventory'].includes(module)&&start&&end&&start>end){stats([]);table([],[]);$('#status').textContent='开始日期不能晚于结束日期';$('#analytics').hidden=true;return}
+ if($('#status').textContent==='开始日期不能晚于结束日期')$('#status').textContent='筛选已更新 · 来源采集时间见各记录';
 
  if(module==='business'){
   const data=latestPeriods((cache.business??[]).filter(r=>allowed(r)&&(!start||r.start_date>=start)&&(!end||r.end_date<=end))).sort((a,b)=>{
