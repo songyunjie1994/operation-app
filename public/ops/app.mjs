@@ -210,7 +210,6 @@ async function load(force=false){
 }
 async function enter(){if(!session)return;$('#login').hidden=true;$('#workspace').hidden=false;await load()}
 $('#login-form').onsubmit=async e=>{e.preventDefault();$('#login-button').disabled=true;try{const username=$('#email').value.trim(),email=username.toLowerCase()==='admin'?'ops-temp-admin@anbito.invalid':username;const result=await auth('token?grant_type=password',{email,password:$('#password').value});$('#password').value='';saveSession({...result,expires_at:Date.now()/1000+result.expires_in});$('#login-message').textContent='';await enter()}catch(error){$('#login-message').textContent=error.message}finally{$('#login-button').disabled=false}};
-$('#send-link').onclick=async()=>{const email=$('#email').value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('#login-message').textContent='邮箱链接登录需要填写管理员邮箱；临时账号请填写密码后点登录';return}$('#send-link').disabled=true;try{await auth('otp?redirect_to='+encodeURIComponent(C.siteUrl),{email,create_user:true});$('#login-message').textContent='登录链接已发送，请打开邮箱中的链接完成验证。'}catch(error){$('#login-message').textContent=error.message}finally{$('#send-link').disabled=false}};
 $('#logout').onclick=()=>{saveSession(null);cache={};$('#workspace').hidden=true;$('#login').hidden=false};
 $('#refresh').onclick=()=>{page=0;return load(true)};
 let reconciliationModel=null,reconciliationBusy=false,reconciliationGeneration=0;

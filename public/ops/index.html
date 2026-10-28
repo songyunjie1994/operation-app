@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+<script>if(location.hostname==='songyunjie1994.github.io')location.replace('https://39.105.205.48/ops/'+location.search+location.hash);</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
@@ -46,9 +47,8 @@
         <label for="password">密码</label>
         <input id="password" type="password" autocomplete="current-password" required placeholder="输入密码">
         <button id="login-button" type="submit">登录</button>
-        <button id="send-link" type="button" class="secondary">用邮箱登录链接</button>
       </form>
-      <p id="login-message" role="status" class="muted">临时账号使用账号密码登录；管理员也可用邮箱链接登录。</p>
+      <p id="login-message" role="status" class="muted">使用账号和密码登录。</p>
       <p class="login-foot">成本系统保持独立。</p>
     </div>
   </div>
@@ -106,10 +106,10 @@
   <div class="recon-toolbar"><strong id="reconciliation-title">实时对账报告</strong><div><button id="reconciliation-save" class="secondary" disabled>下载报告</button><button id="reconciliation-print" class="secondary" disabled>打印 / PDF</button><button id="reconciliation-close" class="secondary" aria-label="关闭实时对账报告">关闭</button></div></div>
   <div id="reconciliation-body" class="recon-body" aria-live="polite"></div>
 </dialog>
-<script src="config.js"></script>
+<script src="config.js?v=20261028-aliyun"></script>
 <script src="inventory-name-map.js?v=20261021"></script>
 <script src="inventory.js?v=20261024-usable"></script>
 <script src="export.js?v=20261022"></script>
-<script type="module" src="app.mjs?v=20261028-credit-pending"></script>
+<script type="module" src="app.mjs?v=20261028-aliyun-password"></script>
 </body>
 </html>
