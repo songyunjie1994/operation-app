@@ -26,6 +26,8 @@
 
 服务器 `.env`、迁移证据目录 `private/` 包含凭据，只能私密保存。公开前端仅有公开匿名密钥。现有开发机 `collector-secrets/anbito-service-role.txt` 仍是旧 Supabase 凭据，不能用来向阿里云发布。
 
-后续采集机发版必须显式指定新的 `QCA_SUPABASE_URL=https://39.105.205.48` 及阿里云服务密钥，不能沿用旧发布脚本的默认源项目。当前设备的 `state/deploy.json` 中 `cloud.functionUrl` 和 `cloud.trafficUrl` 是已迁移地址。
+后续采集机发版工具默认指向 `https://39.105.205.48`，使用开发机私有 `collector-secrets/aliyun-service-role.txt`，不得使用旧 Supabase 服务密钥。也可显式指定 `QCA_SUPABASE_URL`。当前设备的 `state/deploy.json` 中 `cloud.functionUrl` 和 `cloud.trafficUrl` 是已迁移地址。
+
+数据库与对象每日01:15备份到服务器 `/opt/anbito-backups`，约一周轮换；首份备份已校验。自动备份仍在同一服务器，迁移前另有开发机离线副本。
 
 完整备份和验收证据在开发机 `D:/AI数据存放/codex/outputs/aliyun-migration-20261028`，包括源数据清单、逐表摘要核对、204文件哈希、真实网页逐日明细、凭证签名下载、设备迁移标记与诊断回执。该目录的 `private/` 不得加入仓库。
