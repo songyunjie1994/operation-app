@@ -2,7 +2,7 @@ import {DEFAULT_TRAFFIC_START,buildReconciliation,consistentSnapshot,renderRecon
 import {createPayments} from './payments.mjs?v=20261026-clean-summary';
 import {consumptionPreviews,renderConsumptionPreviews} from './consumption-preview.mjs?v=20261027-provisional';
 import {shopDailyDetails} from './business-daily.mjs?v=20261027-workbook';
-import {providerName} from './reconciliation-summary.mjs?v=20261026-clean-summary';
+import {providerName} from './reconciliation-summary.mjs?v=20261028-credit-pending';
 const reportStyle=document.createElement('style');reportStyle.textContent=reportStyles;document.head.appendChild(reportStyle);
 const C=window.OPS_CONFIG;
 const $=s=>document.querySelector(s);
